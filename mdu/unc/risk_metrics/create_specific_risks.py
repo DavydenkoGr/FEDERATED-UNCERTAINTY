@@ -1,14 +1,14 @@
 from typing import Optional
 
 import numpy as np
-from source.metrics.constants import ApproximationType, GName, RiskType
-from source.metrics.getters import (
+from .constants import ApproximationType, GName, RiskType
+from .getters import (
     get_central_prediction,
     get_g_functions,
     get_probability_approximation,
     get_specific_risk,
 )
-from source.metrics.utils import posterior_predictive, safe_softmax
+from .utils import posterior_predictive, safe_softmax
 from scipy.special import logsumexp
 
 

@@ -30,7 +30,9 @@ if toy_dataset == "moons":
         raise ValueError("n_classes must be 2 for moons dataset")
     X, y = make_moons(n_samples=4000, noise=0.1, random_state=42)
 elif toy_dataset == "blobs":
-    X, y = make_blobs(n_samples=4000, centers=n_classes, cluster_std=1.0, random_state=42)
+    X, y = make_blobs(
+        n_samples=4000, centers=n_classes, cluster_std=1.0, random_state=42
+    )
 else:
     raise ValueError(f"Invalid toy dataset: {toy_dataset}")
 
@@ -77,3 +79,5 @@ for i, model in enumerate(ensemble):
         print(f"Model {i + 1} accuracy: {acc:.4f}")
 
 plot_decision_boundaries(ensemble, X_test, y_test, accuracies, device, n_classes)
+
+

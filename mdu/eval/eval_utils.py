@@ -2,6 +2,7 @@ import numpy as np
 import torch.nn.functional as F
 import torch
 
+
 def get_ensemble_probabilities(ensemble, grid_tensor):
     """
     Evaluates the ensemble on the grid_tensor and returns the softmax probabilities.

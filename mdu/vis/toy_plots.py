@@ -2,9 +2,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import torch
+from typing import Optional
 
 
-def plot_decision_boundaries(ensemble, X_test, y_test, accuracies, device, n_classes):
+def plot_decision_boundaries(ensemble, X_test, y_test, accuracies, device, n_classes, return_grid: bool = True) -> Optional[torch.Tensor]:
+    """
+    Plot the decision boundaries of an ensemble of models.
+    """
     # Define the mesh grid for plotting decision boundaries
     assert X_test.shape[1] == 2, "X_test must be a 2D array"
 
@@ -76,3 +80,6 @@ def plot_decision_boundaries(ensemble, X_test, y_test, accuracies, device, n_cla
     plt.savefig("pics/2d_ensemble_decision_boundaries.pdf", bbox_inches="tight")
 
     plt.show()
+
+    if return_grid:
+        return grid_tensor

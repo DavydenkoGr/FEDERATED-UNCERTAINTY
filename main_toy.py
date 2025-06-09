@@ -108,7 +108,7 @@ for i, model in enumerate(ensemble):
         accuracies.append(acc)
         print(f"Model {i + 1} accuracy: {acc:.4f}")
 
-plot_decision_boundaries(ensemble, X_test, y_test, accuracies, device, n_classes)
+grid_tensor = plot_decision_boundaries(ensemble, X_test, y_test, accuracies, device, n_classes, return_grid=True)
 
 
 for uncertainty_measure in UNCERTAINTY_MEASURES:

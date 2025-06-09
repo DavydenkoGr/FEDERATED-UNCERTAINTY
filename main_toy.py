@@ -40,20 +40,20 @@ UNCERTAINTY_MEASURES = [
             "T": 1.0,
         },
     },
-    {
-        "type": UncertaintyType.RISK,
-        "kwargs": {
-            "g_name": GName.LOG_SCORE,
-            "risk_type": RiskType.EXCESS_RISK,
-            "gt_approx": ApproximationType.INNER,
-            "pred_approx": ApproximationType.OUTER,
-            "T": 1.0,
-        },
-    },
     # {
-    #     "type": UncertaintyType.MAHALANOBIS,
-    #     "kwargs": {},
+    #     "type": UncertaintyType.RISK,
+    #     "kwargs": {
+    #         "g_name": GName.LOG_SCORE,
+    #         "risk_type": RiskType.EXCESS_RISK,
+    #         "gt_approx": ApproximationType.INNER,
+    #         "pred_approx": ApproximationType.OUTER,
+    #         "T": 1.0,
+    #     },
     # },
+    {
+        "type": UncertaintyType.MAHALANOBIS,
+        "kwargs": {},
+    },
 ]
 
 

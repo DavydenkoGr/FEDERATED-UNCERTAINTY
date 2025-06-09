@@ -1,0 +1,14 @@
+[project]
+name = "multidimensional-uncertainty"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "matplotlib>=3.10.3",
+    "numpy>=2.3.0",
+    "pot>=0.9.5",
+    "scikit-learn>=1.7.0",
+    "seaborn>=0.13.2",
+    "torch>=2.7.1",
+]

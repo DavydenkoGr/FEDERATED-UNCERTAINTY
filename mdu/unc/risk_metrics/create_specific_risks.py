@@ -40,12 +40,12 @@ def get_risk_approximation(
     prob_gt = get_probability_approximation(
         g_name=g_name, approximation=gt_approx, logits=logits, T=T
     )
-    prob_pred = get_probability_approximation(
-        g_name=g_name, approximation=pred_approx, logits=logits, T=T
-    )
     if risk_type.value == RiskType.BAYES_RISK.value:
         result = np.mean(risk(prob_gt=prob_gt), axis=0)
     else:
+        prob_pred = get_probability_approximation(
+            g_name=g_name, approximation=pred_approx, logits=logits, T=T
+        )
         result = np.mean(risk(prob_gt=prob_gt, prob_pred=prob_pred), axis=(0, 1))
 
     return np.squeeze(result)

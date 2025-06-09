@@ -4,10 +4,12 @@ import numpy as np
 from mdu.nn.architectures import ShallowNet
 from mdu.optim.train import train_emsembles
 import torch.nn as nn
-from mdu.vis.toy_plots import plot_decision_boundaries
+from mdu.vis.toy_plots import plot_decision_boundaries, plot_uncertainty_measures
 from mdu.unc.constants import UncertaintyType
 from mdu.unc.risk_metrics.constants import GName, RiskType, ApproximationType
-from mdu.unc.base import UncertaintyWrapper
+from mdu.unc.multidimensional_uncertainty import MultiDimensionalUncertainty
+from mdu.otcp.functions import OTCPOrdering
+
 
 torch.manual_seed(0)
 np.random.seed(0)
@@ -20,7 +22,7 @@ from sklearn.model_selection import train_test_split
 toy_dataset = "moons"
 n_classes = 2
 device = torch.device("cuda:0")
-n_members = 5
+n_members = 2
 input_dim = 2
 hidden_dim = 32
 n_epochs = 50
@@ -108,12 +110,16 @@ for i, model in enumerate(ensemble):
         accuracies.append(acc)
         print(f"Model {i + 1} accuracy: {acc:.4f}")
 
-grid_tensor = plot_decision_boundaries(ensemble, X_test, y_test, accuracies, device, n_classes, return_grid=True)
+grid_tensor, xx, yy = plot_decision_boundaries(
+    ensemble, X_test, y_test, accuracies, device, n_classes, return_grid=True
+)
 
+multi_dim_uncertainty = MultiDimensionalUncertainty(UNCERTAINTY_MEASURES)
+multi_dim_uncertainty.fit(X_calib, X_calib)
 
-for uncertainty_measure in UNCERTAINTY_MEASURES:
-    uncertainty_wrapper = UncertaintyWrapper(
-        uncertainty_measure["type"], **uncertainty_measure["kwargs"]
-    )
-    print(uncertainty_wrapper.name)
-    print("*" * 100)
+grid_points = np.stack([xx.ravel(), yy.ravel()], axis=-1)
+ordering_indices, uncertainty_scores = multi_dim_uncertainty.predict(grid_points)
+
+plot_uncertainty_measures(
+    xx=xx, yy=yy, uncertainty_measures_dict=uncertainty_scores, X_test=X_test
+)

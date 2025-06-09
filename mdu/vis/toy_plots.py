@@ -3,9 +3,28 @@ import matplotlib.pyplot as plt
 import os
 import torch
 from typing import Optional
+import matplotlib as mpl
+
+# Ensure plt is imported before use
+# Set global font sizes for a publication-quality figure
+mpl.rcParams.update(
+    {
+        "font.size": 22,
+        "axes.titlesize": 26,
+        "axes.labelsize": 24,
+        "xtick.labelsize": 20,
+        "ytick.labelsize": 20,
+        "legend.fontsize": 20,
+        "figure.titlesize": 28,
+        "pdf.fonttype": 42,  # For editable text in PDF
+        "ps.fonttype": 42,
+    }
+)
 
 
-def plot_decision_boundaries(ensemble, X_test, y_test, accuracies, device, n_classes, return_grid: bool = True) -> Optional[torch.Tensor]:
+def plot_decision_boundaries(
+    ensemble, X_test, y_test, accuracies, device, n_classes, return_grid: bool = True
+) -> Optional[tuple[torch.Tensor, np.ndarray, np.ndarray]]:
     """
     Plot the decision boundaries of an ensemble of models.
     """
@@ -82,4 +101,85 @@ def plot_decision_boundaries(ensemble, X_test, y_test, accuracies, device, n_cla
     plt.show()
 
     if return_grid:
-        return grid_tensor
+        return grid_tensor, xx, yy
+
+
+def plot_uncertainty_measures(xx, yy, uncertainty_measures_dict, X_test=None):
+    """
+    Plot uncertainty measures from a dictionary.
+
+    Args:
+        xx, yy: Grid coordinates for contour plots
+        uncertainty_measures_dict: Dict with measure names as keys and grid values as values
+        X_test: Optional test data points to scatter on top of plots
+    """
+    # Get number of uncertainty measures
+    n_measures = len(uncertainty_measures_dict)
+
+    # Determine optimal subplot layout
+    if n_measures <= 4:
+        n_cols = n_measures
+        n_rows = 1
+    else:
+        # For more than 4 plots, use multiple rows
+        n_cols = 4
+        n_rows = (n_measures + n_cols - 1) // n_cols  # Ceiling division
+
+    # Calculate figure size based on layout
+    fig_width = n_cols * 10
+    fig_height = n_rows * 8
+
+    # Create subplots
+    fig, axes = plt.subplots(
+        n_rows, n_cols, figsize=(fig_width, fig_height), constrained_layout=True
+    )
+
+    # Handle case where we have only one row or one plot
+    if n_rows == 1 and n_cols == 1:
+        axes = [axes]  # Make it a list for consistency
+    elif n_rows == 1:
+        axes = axes  # Already a list for single row
+    else:
+        axes = axes.flatten()  # Flatten for easy indexing
+
+    # Common scatter kwargs to reduce repetition
+    scatter_kwargs = {
+        "cmap": plt.cm.Set1,
+        "edgecolor": "k",
+        "s": 80,
+        "linewidth": 1.2,
+        "label": "Test data",
+    }
+
+    # Plot each uncertainty measure
+    for idx, (measure_name, measure_grid) in enumerate(
+        uncertainty_measures_dict.items()
+    ):
+        ax = axes[idx]
+
+        # Create contour plot
+        cont = ax.contourf(xx, yy, measure_grid, levels=30, cmap="magma", alpha=0.8)
+
+        # Add colorbar
+        cbar = fig.colorbar(cont, ax=ax, shrink=0.8, pad=0.02)
+
+        # Add scatter plot of test data if provided
+        if X_test is not None:
+            ax.scatter(X_test[:, 0], X_test[:, 1], **scatter_kwargs)
+
+        # Set labels and title
+        ax.set_title(measure_name)
+        ax.set_xlabel("$x_1$")
+        ax.set_ylabel("$x_2$")
+
+        # Remove top/right spines for cleaner look
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+    # Hide unused subplots if we have extra axes
+    for idx in range(n_measures, len(axes)):
+        axes[idx].set_visible(False)
+
+    # Save and display
+    plt.savefig("./pics/uq_grid_visualization.pdf", bbox_inches="tight", dpi=300)
+    plt.show()

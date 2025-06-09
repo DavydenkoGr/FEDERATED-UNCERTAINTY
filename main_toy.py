@@ -8,7 +8,7 @@ from mdu.vis.toy_plots import plot_decision_boundaries, plot_uncertainty_measure
 from mdu.unc.constants import UncertaintyType
 from mdu.unc.risk_metrics.constants import GName, RiskType, ApproximationType
 from mdu.unc.multidimensional_uncertainty import MultiDimensionalUncertainty
-from mdu.otcp.functions import OTCPOrdering
+from mdu.eval.eval_utils import get_ensemble_predictions
 
 
 torch.manual_seed(0)
@@ -50,10 +50,10 @@ UNCERTAINTY_MEASURES = [
             "T": 1.0,
         },
     },
-    {
-        "type": UncertaintyType.MAHALANOBIS,
-        "kwargs": {},
-    },
+    # {
+    #     "type": UncertaintyType.MAHALANOBIS,
+    #     "kwargs": {},
+    # },
 ]
 
 
@@ -99,6 +99,14 @@ ensemble = train_emsembles(
 accuracies = []
 X_test_tensor = torch.tensor(X_test, dtype=torch.float32, device=device)
 y_test_tensor = torch.tensor(y_test, dtype=torch.long, device=device)
+X_calib_tensor = torch.tensor(X_calib, dtype=torch.float32, device=device)
+
+X_test_logits = get_ensemble_predictions(
+    ensemble, X_test_tensor, device, return_logits=True
+)
+X_calib_logits = get_ensemble_predictions(
+    ensemble, X_calib_tensor, device, return_logits=True
+)
 
 for i, model in enumerate(ensemble):
     model.eval()
@@ -115,11 +123,22 @@ grid_tensor, xx, yy = plot_decision_boundaries(
 )
 
 multi_dim_uncertainty = MultiDimensionalUncertainty(UNCERTAINTY_MEASURES)
-multi_dim_uncertainty.fit(X_calib, X_calib)
+multi_dim_uncertainty.fit(X_calib_logits, X_calib_logits)
 
 grid_points = np.stack([xx.ravel(), yy.ravel()], axis=-1)
-ordering_indices, uncertainty_scores = multi_dim_uncertainty.predict(grid_points)
+
+X_grid_logits = get_ensemble_predictions(
+    ensemble,
+    torch.from_numpy(grid_points).to(torch.float32).to(device),
+    device,
+    return_logits=True,
+)
+
+ordering_indices, uncertainty_scores = multi_dim_uncertainty.predict(X_grid_logits)
 
 plot_uncertainty_measures(
-    xx=xx, yy=yy, uncertainty_measures_dict=uncertainty_scores, X_test=X_test
+    xx=xx,
+    yy=yy,
+    uncertainty_measures_dict=uncertainty_scores,
+    X_test=X_test,
 )

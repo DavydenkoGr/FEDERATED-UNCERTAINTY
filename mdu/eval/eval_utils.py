@@ -3,19 +3,25 @@ import torch.nn.functional as F
 import torch
 
 
-def get_ensemble_probabilities(ensemble, grid_tensor):
+def get_ensemble_predictions(
+    ensemble: list[torch.nn.Module],
+    input_tensor: torch.Tensor,
+    device: str,
+    return_logits: bool = True,
+) -> np.ndarray:
     """
-    Evaluates the ensemble on the grid_tensor and returns the softmax probabilities.
+    Evaluates the ensemble on the input_tensor and returns the softmax probabilities.
     Returns: numpy array of shape (n_models, num_points, n_classes)
     """
-    probs_list = []
+    pred_list = []
     for model in ensemble:
         model.eval()
         with torch.no_grad():
-            logits = model(grid_tensor)
-            probs = F.softmax(logits, dim=1)
-            probs_list.append(probs.cpu().numpy())
-    probs_stack = np.stack(
-        probs_list, axis=0
-    )  # shape: (n_models, num_points, n_classes)
-    return probs_stack
+            logits: torch.Tensor = model(input_tensor)
+            if return_logits:
+                pred_list.append(logits.cpu().numpy())
+            else:
+                probs = F.softmax(logits, dim=1)
+                pred_list.append(probs.cpu().numpy())
+    pred_stack = np.stack(pred_list, axis=0)  # shape: (n_models, num_points, n_classes)
+    return pred_stack

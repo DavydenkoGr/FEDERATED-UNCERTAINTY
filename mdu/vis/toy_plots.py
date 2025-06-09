@@ -23,7 +23,13 @@ mpl.rcParams.update(
 
 
 def plot_decision_boundaries(
-    ensemble, X_test, y_test, accuracies, device, n_classes, return_grid: bool = True
+    ensemble: list[torch.nn.Module],
+    X_test: np.ndarray,
+    y_test: np.ndarray,
+    accuracies: list[float],
+    device: str,
+    n_classes: int,
+    return_grid: bool = True,
 ) -> Optional[tuple[torch.Tensor, np.ndarray, np.ndarray]]:
     """
     Plot the decision boundaries of an ensemble of models.
@@ -158,7 +164,7 @@ def plot_uncertainty_measures(xx, yy, uncertainty_measures_dict, X_test=None):
         ax = axes[idx]
 
         # Create contour plot
-        cont = ax.contourf(xx, yy, measure_grid, levels=30, cmap="magma", alpha=0.8)
+        cont = ax.contourf(xx, yy, measure_grid.reshape(xx.shape), levels=30, cmap="magma", alpha=0.8)
 
         # Add colorbar
         cbar = fig.colorbar(cont, ax=ax, shrink=0.8, pad=0.02)

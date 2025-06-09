@@ -182,28 +182,28 @@ class MultiDimensionalUncertainty:
         # Store estimator names for debugging/interpretation
         self.estimator_names = [est.name for est in self.uncertainty_estimators]
 
-    def fit(self, X_train: np.ndarray, X_calib: np.ndarray):
+    def fit(self, logits_train: np.ndarray, logits_calib: np.ndarray):
         """
         Fit the uncertainty ensemble.
 
         This method:
-        1. Fits each individual uncertainty estimator using X_train
-        2. Computes uncertainty measures on X_calib for each estimator
+        1. Fits each individual uncertainty estimator using logits_train
+        2. Computes uncertainty measures on logits_calib for each estimator
         3. Stacks the results and fits the Optimal Transport mapping
 
         Args:
-            X_train: Training data for fitting uncertainty estimators (e.g., logits)
-            X_calib: Calibration data for fitting the Optimal Transport mapping
+            logits_train: Training data for fitting uncertainty estimators (e.g., logits)
+            logits_calib: Calibration data for fitting the Optimal Transport mapping
 
         Returns:
             self
         """
         # Step 1: Fit each uncertainty estimator
         for estimator in self.uncertainty_estimators:
-            estimator.fit(X_train)
+            estimator.fit(logits_train)
 
         # Step 2: Compute uncertainty measures on calibration data
-        calibration_uncertainties = self._compute_all_uncertainties(X_calib)
+        calibration_uncertainties = self._compute_all_uncertainties(logits_calib)
 
         # Step 3: Stack uncertainties into a matrix (n_samples, n_measures)
         uncertainty_matrix = np.column_stack(calibration_uncertainties)
@@ -214,16 +214,18 @@ class MultiDimensionalUncertainty:
         self.is_fitted = True
         return self
 
-    def predict(self, X_test: np.ndarray) -> tuple[np.ndarray, dict[str, np.ndarray]]:
+    def predict(
+        self, logits_test: np.ndarray
+    ) -> tuple[np.ndarray, dict[str, np.ndarray]]:
         """
         Predict uncertainty scores using the fitted ensemble.
 
         This method:
-        1. Computes uncertainty measures for each estimator on X_test
+        1. Computes uncertainty measures for each estimator on logits_test
         2. Applies the fitted Optimal Transport mapping to get final scores
 
         Args:
-            X_test: Test data for computing uncertainty scores
+            logits_test: Test data for computing uncertainty scores
 
         Returns:
             tuple: (ordering_indices, uncertainty_scores)
@@ -237,7 +239,7 @@ class MultiDimensionalUncertainty:
             )
 
         # Step 1: Compute uncertainty measures for each estimator
-        test_uncertainties = self._compute_all_uncertainties(X_test)
+        test_uncertainties = self._compute_all_uncertainties(logits_test)
 
         # Step 2: Stack uncertainties into a matrix (n_samples, n_measures)
         uncertainty_matrix = np.column_stack(test_uncertainties)
@@ -264,12 +266,12 @@ class MultiDimensionalUncertainty:
         estimator_info = ", ".join(self.estimator_names)
         return f"UncertaintyEnsemble(n_measures={self.n_uncertainty_measures}, measures=[{estimator_info}])"
 
-    def _compute_all_uncertainties(self, X: np.ndarray) -> List[np.ndarray]:
+    def _compute_all_uncertainties(self, logits: np.ndarray) -> List[np.ndarray]:
         """
         Compute uncertainty measures for all estimators on the given data.
 
         Args:
-            X: Input data for uncertainty computation
+            logits: Input data for uncertainty computation
 
         Returns:
             List of uncertainty scores from each estimator
@@ -277,7 +279,7 @@ class MultiDimensionalUncertainty:
 
         uncertainties = []
         for estimator in self.uncertainty_estimators:
-            uncertainty_scores = estimator.predict(X)
+            uncertainty_scores = estimator.predict(logits)
             uncertainties.append(uncertainty_scores)
 
         return uncertainties

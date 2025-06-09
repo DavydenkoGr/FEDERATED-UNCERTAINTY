@@ -79,5 +79,3 @@ for i, model in enumerate(ensemble):
         print(f"Model {i + 1} accuracy: {acc:.4f}")
 
 plot_decision_boundaries(ensemble, X_test, y_test, accuracies, device, n_classes)
-
-

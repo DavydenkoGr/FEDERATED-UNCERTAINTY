@@ -5,6 +5,9 @@ from mdu.nn.architectures import ShallowNet
 from mdu.optim.train import train_emsembles
 import torch.nn as nn
 from mdu.vis.toy_plots import plot_decision_boundaries
+from mdu.unc.constants import UncertaintyType
+from mdu.unc.risk_metrics.constants import GName, RiskType, ApproximationType
+from mdu.unc.base import UncertaintyWrapper
 
 torch.manual_seed(0)
 np.random.seed(0)
@@ -24,6 +27,33 @@ n_epochs = 50
 batch_size = 64
 lambda_ = 1.0
 criterion = nn.CrossEntropyLoss()
+
+UNCERTAINTY_MEASURES = [
+    {
+        "type": UncertaintyType.RISK,
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.BAYES_RISK,
+            "gt_approx": ApproximationType.INNER,
+            "T": 1.0,
+        },
+    },
+    {
+        "type": UncertaintyType.RISK,
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.EXCESS_RISK,
+            "gt_approx": ApproximationType.INNER,
+            "pred_approx": ApproximationType.OUTER,
+            "T": 1.0,
+        },
+    },
+    {
+        "type": UncertaintyType.MAHALANOBIS,
+        "kwargs": {},
+    },
+]
+
 
 if toy_dataset == "moons":
     if n_classes != 2:
@@ -79,3 +109,11 @@ for i, model in enumerate(ensemble):
         print(f"Model {i + 1} accuracy: {acc:.4f}")
 
 plot_decision_boundaries(ensemble, X_test, y_test, accuracies, device, n_classes)
+
+
+for uncertainty_measure in UNCERTAINTY_MEASURES:
+    uncertainty_wrapper = UncertaintyWrapper(
+        uncertainty_measure["type"], **uncertainty_measure["kwargs"]
+    )
+    print(uncertainty_wrapper.name)
+    print("*" * 100)

@@ -3,6 +3,7 @@ import numpy as np
 from .constants import UncertaintyType
 from .general_metrics.mahalanobis import MahalanobisDistance
 from .risk_metrics.create_specific_risks import get_risk_approximation
+from .risk_metrics.constants import RiskType
 
 
 class UncertaintyWrapper:
@@ -21,6 +22,41 @@ class UncertaintyWrapper:
         self.kwargs = kwargs
         self.model = None
         self.is_fitted = False
+        self.name = self._make_name()
+
+    def _make_name(self):
+        if self.uncertainty_type == UncertaintyType.MAHALANOBIS:
+            return "MahalanobisDistance"
+        elif self.uncertainty_type == UncertaintyType.RISK:
+            g_name = self.kwargs.get("g_name", None)
+            risk_type = self.kwargs.get("risk_type", None)
+            gt_approx = self.kwargs.get("gt_approx", None)
+            pred_approx = self.kwargs.get("pred_approx", None)
+            # pred_approx can be None for BayesRisk
+            g_name_str = (
+                str(getattr(g_name, "name", g_name)) if g_name is not None else "None"
+            )
+            risk_type_str = (
+                str(getattr(risk_type, "name", risk_type))
+                if risk_type is not None
+                else "None"
+            )
+            gt_approx_str = (
+                str(getattr(gt_approx, "name", gt_approx))
+                if gt_approx is not None
+                else "None"
+            )
+            pred_approx_str = (
+                str(getattr(pred_approx, "name", pred_approx))
+                if pred_approx is not None
+                else "None"
+            )
+            if pred_approx_str == "None":
+                return f"{g_name_str}_{risk_type_str}_{gt_approx_str}"
+            else:
+                return f"{g_name_str}_{risk_type_str}_{gt_approx_str}_{pred_approx_str}"
+        else:
+            return str(self.uncertainty_type)
 
     def fit(self, train_logits: Optional[np.ndarray] = None):
         """
@@ -73,14 +109,23 @@ class UncertaintyWrapper:
             required_keys = ["g_name", "risk_type", "gt_approx", "pred_approx", "T"]
             for key in required_keys:
                 if key not in params:
+                    # Allow pred_approx to be missing if risk_type is BAYES_RISK
+                    if key == "pred_approx" and (
+                        params.get("risk_type") == RiskType.BAYES_RISK
+                        or getattr(params.get("risk_type"), "value", None)
+                        == RiskType.BAYES_RISK
+                    ):
+                        continue
                     raise ValueError(
                         f"Missing required parameter '{key}' for risk-based uncertainty."
                     )
+            # Update name in case runtime kwargs change the configuration
+            self.name = self._make_name() if kwargs else self.name
             return get_risk_approximation(
                 g_name=params["g_name"],
                 risk_type=params["risk_type"],
                 gt_approx=params["gt_approx"],
-                pred_approx=params["pred_approx"],
+                pred_approx=params.get("pred_approx", None),
                 logits=logits,
                 probabilities=params.get("probabilities", None),
                 T=params["T"],

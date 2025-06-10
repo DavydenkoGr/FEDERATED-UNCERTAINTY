@@ -1,13 +1,15 @@
 import numpy as np
 
+EPS = 1e-10
+
 
 # Log score
 def logscore_g(prob: np.ndarray) -> np.ndarray:
-    return np.sum(prob * np.log(prob), axis=-1, keepdims=True)
+    return np.sum(prob * np.log(prob + EPS), axis=-1, keepdims=True)
 
 
 def logscore_grad_g(prob: np.ndarray) -> np.ndarray:
-    return 1 + np.log(prob)
+    return 1 + np.log(prob + EPS)
 
 
 # Brier score

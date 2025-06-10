@@ -10,6 +10,8 @@ from mdu.unc.constants import UncertaintyType
 from mdu.unc.risk_metrics.constants import GName, RiskType, ApproximationType
 from mdu.unc.multidimensional_uncertainty import MultiDimensionalUncertainty
 from mdu.eval.eval_utils import get_ensemble_predictions
+from mdu.data.load_dataset import get_dataset
+from mdu.data.constants import DatasetName
 
 
 torch.manual_seed(0)
@@ -17,11 +19,10 @@ np.random.seed(0)
 
 set_all_seeds(42)
 
-from sklearn.datasets import make_moons, make_blobs
 from sklearn.model_selection import train_test_split
 
-toy_dataset = "moons"
-n_classes = 2
+dataset_name = DatasetName.BLOBS
+n_classes = 10
 device = torch.device("cuda:0")
 n_members = 2
 input_dim = 2
@@ -145,17 +146,7 @@ UNCERTAINTY_MEASURES = [
 ]
 
 
-if toy_dataset == "moons":
-    if n_classes != 2:
-        raise ValueError("n_classes must be 2 for moons dataset")
-    X, y = make_moons(n_samples=4000, noise=0.1, random_state=42)
-elif toy_dataset == "blobs":
-    X, y = make_blobs(
-        n_samples=4000, centers=n_classes, cluster_std=1.0, random_state=42
-    )
-else:
-    raise ValueError(f"Invalid toy dataset: {toy_dataset}")
-
+X, y = get_dataset(dataset_name, n_classes)
 
 X_train_main, X_temp, y_train_main, y_temp = train_test_split(
     X, y, test_size=0.5, random_state=42, stratify=y

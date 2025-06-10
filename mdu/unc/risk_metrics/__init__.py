@@ -5,6 +5,7 @@ from .create_specific_risks import (
     get_risk_approximation,
     get_central_prediction,
 )
+from .getters import get_specific_risk
 from .utils import posterior_predictive
 
 __all__ = [

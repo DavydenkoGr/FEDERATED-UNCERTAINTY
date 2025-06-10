@@ -12,6 +12,7 @@ from . import nn
 from . import optim
 from . import otcp
 from . import randomness
+from .randomness import set_all_seeds
 
 __version__ = "0.1.0"
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "optim",
     "otcp",
     "randomness",
+    "set_all_seeds",
 ]

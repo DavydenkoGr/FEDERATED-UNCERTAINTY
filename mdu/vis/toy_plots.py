@@ -150,7 +150,6 @@ def plot_uncertainty_measures(xx, yy, uncertainty_measures_dict, X_test=None):
 
     # Common scatter kwargs to reduce repetition
     scatter_kwargs = {
-        "cmap": plt.cm.Set1,
         "edgecolor": "k",
         "s": 80,
         "linewidth": 1.2,
@@ -165,7 +164,12 @@ def plot_uncertainty_measures(xx, yy, uncertainty_measures_dict, X_test=None):
 
         # Create contour plot
         cont = ax.contourf(
-            xx, yy, measure_grid.reshape(xx.shape), levels=30, cmap="magma", alpha=0.8
+            xx,
+            yy,
+            measure_grid.reshape(xx.shape),
+            alpha=0.8,
+            levels=30,
+            cmap="magma",
         )
 
         # Add colorbar

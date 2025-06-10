@@ -23,7 +23,7 @@ from sklearn.model_selection import train_test_split
 toy_dataset = "moons"
 n_classes = 2
 device = torch.device("cuda:0")
-n_members = 20
+n_members = 2
 input_dim = 2
 hidden_dim = 32
 n_epochs = 50

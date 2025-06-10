@@ -6,7 +6,7 @@ import torch.optim as optim
 from mdu.optim.regularizers import compute_anti_regularization
 
 
-def train_emsembles(
+def train_ensembles(
     models: list[nn.Module],
     X_tensor: torch.Tensor,
     y_tensor: torch.Tensor,

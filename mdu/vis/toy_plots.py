@@ -164,7 +164,9 @@ def plot_uncertainty_measures(xx, yy, uncertainty_measures_dict, X_test=None):
         ax = axes[idx]
 
         # Create contour plot
-        cont = ax.contourf(xx, yy, measure_grid.reshape(xx.shape), levels=30, cmap="magma", alpha=0.8)
+        cont = ax.contourf(
+            xx, yy, measure_grid.reshape(xx.shape), levels=30, cmap="magma", alpha=0.8
+        )
 
         # Add colorbar
         cbar = fig.colorbar(cont, ax=ax, shrink=0.8, pad=0.02)

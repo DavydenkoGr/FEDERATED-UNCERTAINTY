@@ -1,8 +1,9 @@
 import torch
 from mdu.randomness import set_all_seeds
 import numpy as np
-from mdu.nn.architectures import ShallowNet
-from mdu.optim.train import train_emsembles
+from mdu.nn.load_models import get_model
+from mdu.nn.constants import ModelName
+from mdu.optim.train import train_ensembles
 import torch.nn as nn
 from mdu.vis.toy_plots import plot_decision_boundaries, plot_uncertainty_measures
 from mdu.unc.constants import UncertaintyType
@@ -22,7 +23,7 @@ from sklearn.model_selection import train_test_split
 toy_dataset = "moons"
 n_classes = 2
 device = torch.device("cuda:0")
-n_members = 2
+n_members = 20
 input_dim = 2
 hidden_dim = 32
 n_epochs = 50
@@ -31,29 +32,116 @@ lambda_ = 1.0
 criterion = nn.CrossEntropyLoss()
 
 UNCERTAINTY_MEASURES = [
-    {
-        "type": UncertaintyType.RISK,
-        "kwargs": {
-            "g_name": GName.LOG_SCORE,
-            "risk_type": RiskType.BAYES_RISK,
-            "gt_approx": ApproximationType.INNER,
-            "T": 1.0,
-        },
-    },
     # {
     #     "type": UncertaintyType.RISK,
     #     "kwargs": {
     #         "g_name": GName.LOG_SCORE,
-    #         "risk_type": RiskType.EXCESS_RISK,
-    #         "gt_approx": ApproximationType.INNER,
-    #         "pred_approx": ApproximationType.OUTER,
+    #         "risk_type": RiskType.BAYES_RISK,
+    #         "gt_approx": ApproximationType.OUTER,
+    #         "T": 1.0,
+    #     },
+    # },
+    # {
+    #     "type": UncertaintyType.RISK,
+    #     "kwargs": {
+    #         "g_name": GName.BRIER_SCORE,
+    #         "risk_type": RiskType.BAYES_RISK,
+    #         "gt_approx": ApproximationType.OUTER,
+    #         "T": 1.0,
+    #     },
+    # },
+    #     {
+    #     "type": UncertaintyType.RISK,
+    #     "kwargs": {
+    #         "g_name": GName.SPHERICAL_SCORE,
+    #         "risk_type": RiskType.BAYES_RISK,
+    #         "gt_approx": ApproximationType.OUTER,
+    #         "T": 1.0,
+    #     },
+    # },
+    #     {
+    #     "type": UncertaintyType.RISK,
+    #     "kwargs": {
+    #         "g_name": GName.ZERO_ONE_SCORE,
+    #         "risk_type": RiskType.BAYES_RISK,
+    #         "gt_approx": ApproximationType.OUTER,
     #         "T": 1.0,
     #     },
     # },
     {
-        "type": UncertaintyType.MAHALANOBIS,
-        "kwargs": {},
+        "type": UncertaintyType.RISK,
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.EXCESS_RISK,
+            "gt_approx": ApproximationType.OUTER,
+            "pred_approx": ApproximationType.OUTER,
+            "T": 1.0,
+        },
     },
+    {
+        "type": UncertaintyType.RISK,
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.EXCESS_RISK,
+            "gt_approx": ApproximationType.INNER,
+            "pred_approx": ApproximationType.OUTER,
+            "T": 1.0,
+        },
+    },
+    {
+        "type": UncertaintyType.RISK,
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.EXCESS_RISK,
+            "gt_approx": ApproximationType.OUTER,
+            "pred_approx": ApproximationType.INNER,
+            "T": 1.0,
+        },
+    },
+    {
+        "type": UncertaintyType.RISK,
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.EXCESS_RISK,
+            "gt_approx": ApproximationType.OUTER,
+            "pred_approx": ApproximationType.CENTRAL,
+            "T": 1.0,
+        },
+    },
+    {
+        "type": UncertaintyType.RISK,
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.EXCESS_RISK,
+            "gt_approx": ApproximationType.INNER,
+            "pred_approx": ApproximationType.CENTRAL,
+            "T": 1.0,
+        },
+    },
+    {
+        "type": UncertaintyType.RISK,
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.EXCESS_RISK,
+            "gt_approx": ApproximationType.CENTRAL,
+            "pred_approx": ApproximationType.OUTER,
+            "T": 1.0,
+        },
+    },
+    {
+        "type": UncertaintyType.RISK,
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.EXCESS_RISK,
+            "gt_approx": ApproximationType.CENTRAL,
+            "pred_approx": ApproximationType.INNER,
+            "T": 1.0,
+        },
+    },
+    # {
+    #     "type": UncertaintyType.MAHALANOBIS,
+    #     "kwargs": {},
+    # },
 ]
 
 
@@ -83,10 +171,16 @@ X_tensor = torch.tensor(X_train_main, dtype=torch.float32, device=device)
 y_tensor = torch.tensor(y_train_main, dtype=torch.long, device=device)
 
 ensemble = [
-    ShallowNet(input_dim, hidden_dim, n_classes).to(device) for _ in range(n_members)
+    get_model(
+        ModelName.SHALLOWNET,
+        n_classes,
+        input_dim=input_dim,
+        hidden_dim=hidden_dim,
+    ).to(device)
+    for _ in range(n_members)
 ]
 
-ensemble = train_emsembles(
+ensemble = train_ensembles(
     ensemble,
     X_tensor,
     y_tensor,

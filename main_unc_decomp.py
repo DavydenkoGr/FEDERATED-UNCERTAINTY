@@ -12,6 +12,9 @@ from mdu.unc.multidimensional_uncertainty import MultiDimensionalUncertainty
 from mdu.eval.eval_utils import get_ensemble_predictions
 from mdu.data.load_dataset import get_dataset
 from mdu.data.constants import DatasetName
+from mdu.eval.toy_exp import eval_unc_decomp
+import pandas as pd
+from mdu.vis.toy_plots import plot_data_and_test_point
 
 
 torch.manual_seed(0)
@@ -22,21 +25,23 @@ set_all_seeds(42)
 from sklearn.model_selection import train_test_split
 
 dataset_name = DatasetName.BLOBS
-n_classes = 10
+n_classes = 2
 device = torch.device("cuda:0")
-n_members = 2
+n_members = 50
 input_dim = 2
 hidden_dim = 32
-n_epochs = 50
+n_epochs = 30
 batch_size = 64
-lambda_ = 1.0
+lambda_ = 0.0
+calib_ratio = 0.1
+val_ratio = 0.2
 criterion = nn.CrossEntropyLoss()
 
 UNCERTAINTY_MEASURES = [
     {
         "type": UncertaintyType.RISK,
         "kwargs": {
-            "g_name": GName.LOG_SCORE,
+            "g_name": GName.BRIER_SCORE,
             "risk_type": RiskType.BAYES_RISK,
             "gt_approx": ApproximationType.OUTER,
             "T": 1.0,
@@ -45,7 +50,7 @@ UNCERTAINTY_MEASURES = [
     {
         "type": UncertaintyType.RISK,
         "kwargs": {
-            "g_name": GName.LOG_SCORE,
+            "g_name": GName.BRIER_SCORE,
             "risk_type": RiskType.EXCESS_RISK,
             "pred_approx": ApproximationType.OUTER,
             "gt_approx": ApproximationType.INNER,
@@ -69,5 +74,47 @@ else:
 
 X, y = get_dataset(dataset_name, n_classes, **dataset_params)
 
-
 mean_point = np.mean(X, axis=0)
+
+
+res = eval_unc_decomp(
+    X=X,
+    y=y,
+    test_point=mean_point,
+    device=device,
+    uncertainty_measures=UNCERTAINTY_MEASURES,
+    n_epochs=n_epochs,
+    input_dim=input_dim,
+    hidden_dim=hidden_dim,
+    n_members=n_members,
+    batch_size=batch_size,
+    lambda_=lambda_,
+    criterion=criterion,
+    calib_ratio=calib_ratio,
+    val_ratio=val_ratio,
+)
+
+uncertainty_keys = set()
+for r in res:
+    for k in r.keys():
+        if any(prefix in k for prefix in ['aleatoric_', 'epistemic_', 'additive_total', 'ot_scores']):
+            uncertainty_keys.add(k)
+uncertainty_keys = sorted(uncertainty_keys)
+
+df_results = pd.DataFrame([
+    {
+        'samples_per_class': r['n_samples_per_class'],
+        'total_samples': r['total_samples'],
+        'avg_val_acc': r['avg_val_acc'],
+        'val_size': r['val_size'],
+        'calib_size': r['calib_size'],
+        **{k: r.get(k, float('nan')) for k in uncertainty_keys}
+    }
+    for r in res
+])
+
+print("Summary of Results at Midpoint (all available uncertainty metrics):")
+with pd.option_context('display.max_columns', None):
+    print(df_results.to_string(index=False, float_format='%.4f'))
+
+plot_data_and_test_point(X, y, mean_point)

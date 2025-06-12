@@ -4,6 +4,6 @@ from .toy_datasets import load_toy_dataset
 
 __all__ = [
     "DatasetName",
-    "get_dataset", 
+    "get_dataset",
     "load_toy_dataset",
 ]

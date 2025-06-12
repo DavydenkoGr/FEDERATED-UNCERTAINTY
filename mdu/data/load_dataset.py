@@ -3,7 +3,9 @@ import numpy as np
 from .constants import DatasetName
 
 
-def get_dataset(dataset: DatasetName, n_classes: int, **kwargs) -> tuple[np.ndarray, np.ndarray]:
+def get_dataset(
+    dataset: DatasetName, n_classes: int, **kwargs
+) -> tuple[np.ndarray, np.ndarray]:
     if dataset in [DatasetName.BLOBS, DatasetName.MOONS]:
         return load_toy_dataset(dataset.value, n_classes, **kwargs)
     else:

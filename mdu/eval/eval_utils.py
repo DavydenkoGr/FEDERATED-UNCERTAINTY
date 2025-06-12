@@ -6,7 +6,6 @@ import torch
 def get_ensemble_predictions(
     ensemble: list[torch.nn.Module],
     input_tensor: torch.Tensor,
-    device: str,
     return_logits: bool = True,
 ) -> np.ndarray:
     """

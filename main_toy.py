@@ -106,13 +106,14 @@ ensemble = train_ensembles(
 accuracies = []
 X_test_tensor = torch.tensor(X_test, dtype=torch.float32, device=device)
 y_test_tensor = torch.tensor(y_test, dtype=torch.long, device=device)
+
 X_calib_tensor = torch.tensor(X_calib, dtype=torch.float32, device=device)
 
 X_test_logits = get_ensemble_predictions(
-    ensemble, X_test_tensor, device, return_logits=True
+    ensemble, X_test_tensor, return_logits=True
 )
 X_calib_logits = get_ensemble_predictions(
-    ensemble, X_calib_tensor, device, return_logits=True
+    ensemble, X_calib_tensor, return_logits=True
 )
 
 for i, model in enumerate(ensemble):
@@ -130,14 +131,13 @@ grid_tensor, xx, yy = plot_decision_boundaries(
 )
 
 multi_dim_uncertainty = MultiDimensionalUncertainty(UNCERTAINTY_MEASURES)
-multi_dim_uncertainty.fit(X_calib_logits, X_calib_logits)
+multi_dim_uncertainty.fit(X_calib_logits, y_calib, X_calib_logits)
 
 grid_points = np.stack([xx.ravel(), yy.ravel()], axis=-1)
 
 X_grid_logits = get_ensemble_predictions(
     ensemble,
     torch.from_numpy(grid_points).to(torch.float32).to(device),
-    device,
     return_logits=True,
 )
 

@@ -117,10 +117,10 @@ def eval_unc_decomp(
             )
 
             X_calib_logits = get_ensemble_predictions(
-                ensemble, X_calib_tensor, device, return_logits=True
+                ensemble, X_calib_tensor, return_logits=True
             )
             test_point_logits = get_ensemble_predictions(
-                ensemble, test_point_tensor, device, return_logits=True
+                ensemble, test_point_tensor, return_logits=True
             )
 
             # Fit MultiDimensionalUncertainty on calibration logits

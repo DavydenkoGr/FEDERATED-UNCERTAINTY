@@ -66,7 +66,7 @@ class UncertaintyEstimator:
         else:
             return str(self.uncertainty_type)
 
-    def fit(self, train_logits: Optional[np.ndarray] = None):
+    def fit(self, train_logits: Optional[np.ndarray] = None, y_train: Optional[np.ndarray] = None):
         """
         Fit the uncertainty estimator if required.
 
@@ -80,7 +80,7 @@ class UncertaintyEstimator:
                 raise ValueError(
                     "train_logits must be provided for Mahalanobis uncertainty."
                 )
-            self.model = MahalanobisDistance().fit(train_logits)
+            self.model = MahalanobisDistance().fit(train_logits, y_train)
             self.is_fitted = True
         elif self.uncertainty_type == UncertaintyType.RISK:
             # Risk-based uncertainty does not require fitting
@@ -196,7 +196,7 @@ class MultiDimensionalUncertainty:
             est.print_name for est in self.uncertainty_estimators
         ]
 
-    def fit(self, logits_train: np.ndarray, logits_calib: np.ndarray):
+    def fit(self, logits_train: np.ndarray, y_train: np.ndarray, logits_calib: np.ndarray):
         """
         Fit the uncertainty ensemble.
 
@@ -214,7 +214,7 @@ class MultiDimensionalUncertainty:
         """
         # Step 1: Fit each uncertainty estimator
         for estimator in self.uncertainty_estimators:
-            estimator.fit(logits_train)
+            estimator.fit(logits_train, y_train)
 
         # Step 2: Compute uncertainty measures on calibration data
         calibration_uncertainties = self._compute_all_uncertainties(logits_calib)

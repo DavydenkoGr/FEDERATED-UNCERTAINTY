@@ -13,7 +13,12 @@ class UncertaintyEstimator:
     with fit and predict methods. Handles both trainable and non-trainable uncertainty measures.
     """
 
-    def __init__(self, uncertainty_type: UncertaintyType, print_name: Optional[str] = None, **kwargs):
+    def __init__(
+        self,
+        uncertainty_type: UncertaintyType,
+        print_name: Optional[str] = None,
+        **kwargs,
+    ):
         """
         Args:
             uncertainty_type: Type of uncertainty measure (e.g., MAHALANOBIS, RISK)
@@ -172,7 +177,11 @@ class MultiDimensionalUncertainty:
         # Initialize individual uncertainty estimators
         self.uncertainty_estimators = []
         for config in uncertainty_configs:
-            estimator = UncertaintyEstimator(config["type"], print_name=config.get("print_name", None), **config["kwargs"])
+            estimator = UncertaintyEstimator(
+                config["type"],
+                print_name=config.get("print_name", None),
+                **config["kwargs"],
+            )
             self.uncertainty_estimators.append(estimator)
 
         # Optimal Transport scorer for combining uncertainty measures
@@ -183,7 +192,9 @@ class MultiDimensionalUncertainty:
 
         # Store estimator names for debugging/interpretation
         self.estimator_names = [est.name for est in self.uncertainty_estimators]
-        self.estimator_print_names = [est.print_name for est in self.uncertainty_estimators]
+        self.estimator_print_names = [
+            est.print_name for est in self.uncertainty_estimators
+        ]
 
     def fit(self, logits_train: np.ndarray, logits_calib: np.ndarray):
         """
@@ -252,7 +263,9 @@ class MultiDimensionalUncertainty:
 
         # Step 4: Create dictionary mapping uncertainty measure names to their scores
         uncertainty_scores = {}
-        for name, print_name, scores in zip(self.estimator_names, self.estimator_print_names, test_uncertainties):
+        for name, print_name, scores in zip(
+            self.estimator_names, self.estimator_print_names, test_uncertainties
+        ):
             if print_name is None:
                 uncertainty_scores[name] = scores
             else:

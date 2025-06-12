@@ -2,7 +2,7 @@ import torch.nn
 from .constants import ModelName
 from .resnet import ResNet18
 from .vgg import VGG
-from .simple_models import ShallowNet
+from .simple_models import ShallowNet, LinearModel
 
 
 def get_model(model_name: str, n_classes: int = 10, **kwargs) -> torch.nn.Module:
@@ -19,6 +19,8 @@ def get_model(model_name: str, n_classes: int = 10, **kwargs) -> torch.nn.Module
             return VGG(vgg_name="VGG19", n_classes=n_classes)
         case ModelName.SHALLOWNET:
             return ShallowNet(n_classes=n_classes, **kwargs)
+        case ModelName.LINEAR_MODEL:
+            return LinearModel(n_classes=n_classes, **kwargs)
         case _:
             raise ValueError(
                 f"{model_name} --  no such neural network is available. ",

@@ -8,3 +8,4 @@ class ModelName(Enum):
     VGG16 = "vgg16"
     VGG19 = "vgg19"
     SHALLOWNET = "shallownet"
+    LINEAR_MODEL = "linear_model"

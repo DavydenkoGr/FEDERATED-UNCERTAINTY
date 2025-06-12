@@ -62,7 +62,7 @@ def plot_decision_boundaries(
             xx,
             yy,
             Z,
-            levels=[1.0 / n_classes],
+            levels=np.arange(n_classes + 1) - 0.5,
             colors="k",
             linewidths=1.8,
             alpha=0.18,
@@ -199,12 +199,20 @@ def plot_uncertainty_measures(xx, yy, uncertainty_measures_dict, X_test=None):
 
 def plot_data_and_test_point(X_test, y_test, test_point):
     plt.figure(figsize=(10, 8))
-    plt.scatter(X_test[:, 0], X_test[:, 1], c=y_test, cmap='viridis', alpha=0.6, s=50)
-    plt.scatter(test_point[0], test_point[1], c='red', s=200, marker='*', 
-            edgecolor='black', linewidth=2, label='Test point (midpoint)')
-    plt.title('Two Blobs Dataset with Test Point', fontsize=16)
-    plt.xlabel('Feature 1', fontsize=14)
-    plt.ylabel('Feature 2', fontsize=14)
+    plt.scatter(X_test[:, 0], X_test[:, 1], c=y_test, cmap="viridis", alpha=0.6, s=50)
+    plt.scatter(
+        test_point[0],
+        test_point[1],
+        c="red",
+        s=200,
+        marker="*",
+        edgecolor="black",
+        linewidth=2,
+        label="Test point (midpoint)",
+    )
+    plt.title("Two Blobs Dataset with Test Point", fontsize=16)
+    plt.xlabel("Feature 1", fontsize=14)
+    plt.ylabel("Feature 2", fontsize=14)
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()

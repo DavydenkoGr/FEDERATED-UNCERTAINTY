@@ -17,10 +17,9 @@ def eval_unc_decomp(
     test_point: np.ndarray,
     device: torch.device,
     uncertainty_measures: list[dict],
-    samples_per_class: list[int] = [1, 2, 4, 8, 16, 32, 64, 128, 256],
+    samples_per_class: list[int] = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024],
     n_epochs: int = 100,
     input_dim: int = 2,
-    hidden_dim: int = 32,
     n_members: int = 20,
     batch_size: int = 64,
     lambda_: float = 1.0,
@@ -55,10 +54,9 @@ def eval_unc_decomp(
 
         ensemble = [
             get_model(
-                ModelName.SHALLOWNET,
+                ModelName.LINEAR_MODEL,
                 n_classes,
                 input_dim=input_dim,
-                hidden_dim=hidden_dim,
             ).to(device)
             for _ in range(n_members)
         ]

@@ -13,14 +13,14 @@ from mdu.eval.eval_utils import get_ensemble_predictions
 from mdu.data.load_dataset import get_dataset
 from mdu.data.constants import DatasetName
 
-set_all_seeds(42)
+set_all_seeds(1)
 
 from sklearn.model_selection import train_test_split
 
 dataset_name = DatasetName.BLOBS
 n_classes = 10
 device = torch.device("cuda:0")
-n_members = 2
+n_members = 1
 input_dim = 2
 hidden_dim = 32
 n_epochs = 50
@@ -32,6 +32,7 @@ criterion = nn.CrossEntropyLoss()
 UNCERTAINTY_MEASURES = [
     {
         "type": UncertaintyType.RISK,
+        "print_name": "Predictive entropy",
         "kwargs": {
             "g_name": GName.LOG_SCORE,
             "risk_type": RiskType.BAYES_RISK,
@@ -39,105 +40,9 @@ UNCERTAINTY_MEASURES = [
             "T": 1.0,
         },
     },
-    # {
-    #     "type": UncertaintyType.RISK,
-    #     "kwargs": {
-    #         "g_name": GName.BRIER_SCORE,
-    #         "risk_type": RiskType.BAYES_RISK,
-    #         "gt_approx": ApproximationType.OUTER,
-    #         "T": 1.0,
-    #     },
-    # },
-    #     {
-    #     "type": UncertaintyType.RISK,
-    #     "kwargs": {
-    #         "g_name": GName.SPHERICAL_SCORE,
-    #         "risk_type": RiskType.BAYES_RISK,
-    #         "gt_approx": ApproximationType.OUTER,
-    #         "T": 1.0,
-    #     },
-    # },
-    #     {
-    #     "type": UncertaintyType.RISK,
-    #     "kwargs": {
-    #         "g_name": GName.ZERO_ONE_SCORE,
-    #         "risk_type": RiskType.BAYES_RISK,
-    #         "gt_approx": ApproximationType.OUTER,
-    #         "T": 1.0,
-    #     },
-    # },
-    # {
-    #     "type": UncertaintyType.RISK,
-    #     "kwargs": {
-    #         "g_name": GName.LOG_SCORE,
-    #         "risk_type": RiskType.EXCESS_RISK,
-    #         "gt_approx": ApproximationType.OUTER,
-    #         "pred_approx": ApproximationType.OUTER,
-    #         "T": 1.0,
-    #     },
-    # },
-    # {
-    #     "type": UncertaintyType.RISK,
-    #     "kwargs": {
-    #         "g_name": GName.LOG_SCORE,
-    #         "risk_type": RiskType.EXCESS_RISK,
-    #         "gt_approx": ApproximationType.INNER,
-    #         "pred_approx": ApproximationType.OUTER,
-    #         "T": 1.0,
-    #     },
-    # },
-    # {
-    #     "type": UncertaintyType.RISK,
-    #     "kwargs": {
-    #         "g_name": GName.LOG_SCORE,
-    #         "risk_type": RiskType.EXCESS_RISK,
-    #         "gt_approx": ApproximationType.OUTER,
-    #         "pred_approx": ApproximationType.INNER,
-    #         "T": 1.0,
-    #     },
-    # },
-    # {
-    #     "type": UncertaintyType.RISK,
-    #     "kwargs": {
-    #         "g_name": GName.LOG_SCORE,
-    #         "risk_type": RiskType.EXCESS_RISK,
-    #         "gt_approx": ApproximationType.OUTER,
-    #         "pred_approx": ApproximationType.CENTRAL,
-    #         "T": 1.0,
-    #     },
-    # },
-    # {
-    #     "type": UncertaintyType.RISK,
-    #     "kwargs": {
-    #         "g_name": GName.LOG_SCORE,
-    #         "risk_type": RiskType.EXCESS_RISK,
-    #         "gt_approx": ApproximationType.INNER,
-    #         "pred_approx": ApproximationType.CENTRAL,
-    #         "T": 1.0,
-    #     },
-    # },
-    # {
-    #     "type": UncertaintyType.RISK,
-    #     "kwargs": {
-    #         "g_name": GName.LOG_SCORE,
-    #         "risk_type": RiskType.EXCESS_RISK,
-    #         "gt_approx": ApproximationType.CENTRAL,
-    #         "pred_approx": ApproximationType.OUTER,
-    #         "T": 1.0,
-    #     },
-    # },
-    # {
-    #     "type": UncertaintyType.RISK,
-    #     "kwargs": {
-    #         "g_name": GName.LOG_SCORE,
-    #         "risk_type": RiskType.EXCESS_RISK,
-    #         "gt_approx": ApproximationType.CENTRAL,
-    #         "pred_approx": ApproximationType.INNER,
-    #         "T": 1.0,
-    #     },
-    # },
     {
         "type": UncertaintyType.MAHALANOBIS,
+        "print_name": "Mahalanobis distance",
         "kwargs": {},
     },
 ]

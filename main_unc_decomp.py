@@ -17,12 +17,12 @@ n_classes = 2
 device = torch.device("cuda:0")
 n_members = 50
 input_dim = 2
-n_epochs = 1
+n_epochs = 10
 batch_size = 64
-lambda_ = 0.0
+lambda_ = 1.0
 calib_ratio = 0.2
 val_ratio = 0.2
-lr = 1e-2
+lr = 1.0
 criterion = nn.CrossEntropyLoss()
 
 UNCERTAINTY_MEASURES = [
@@ -61,6 +61,8 @@ else:
     raise ValueError(f"Invalid dataset: {dataset_name}")
 
 X, y = get_dataset(dataset_name, n_classes, **dataset_params)
+
+X = X + 3.0
 
 mean_point = np.mean(X, axis=0)
 

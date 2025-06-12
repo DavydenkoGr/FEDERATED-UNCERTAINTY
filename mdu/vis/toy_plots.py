@@ -188,7 +188,12 @@ def plot_uncertainty_measures(xx, yy, uncertainty_measures_dict, X_test=None):
             ax.scatter(X_test[:, 0], X_test[:, 1], **scatter_kwargs)
 
         # Set labels and title
-        ax.set_title(measure_name)
+        if measure_name == "additive_total":
+            ax.set_title("Total uncertainty")
+        elif measure_name == "ot_scores":
+            ax.set_title("OT scores")
+        else:
+            ax.set_title(measure_name)
         ax.set_xlabel("$x_1$")
         ax.set_ylabel("$x_2$")
 

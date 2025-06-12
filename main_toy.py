@@ -13,10 +13,6 @@ from mdu.eval.eval_utils import get_ensemble_predictions
 from mdu.data.load_dataset import get_dataset
 from mdu.data.constants import DatasetName
 
-
-torch.manual_seed(0)
-np.random.seed(0)
-
 set_all_seeds(42)
 
 from sklearn.model_selection import train_test_split

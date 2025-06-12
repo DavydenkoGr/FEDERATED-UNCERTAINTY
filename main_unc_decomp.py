@@ -10,10 +10,6 @@ from mdu.eval.toy_exp import eval_unc_decomp
 import pandas as pd
 from mdu.vis.toy_plots import plot_data_and_test_point
 
-
-torch.manual_seed(0)
-np.random.seed(0)
-
 set_all_seeds(42)
 
 dataset_name = DatasetName.BLOBS
@@ -21,7 +17,7 @@ n_classes = 2
 device = torch.device("cuda:0")
 n_members = 50
 input_dim = 2
-n_epochs = 50
+n_epochs = 1
 batch_size = 64
 lambda_ = 0.0
 calib_ratio = 0.2

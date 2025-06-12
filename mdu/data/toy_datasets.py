@@ -3,20 +3,20 @@ import numpy as np
 
 
 def load_toy_dataset(
-    toy_dataset: str, n_classes: int, **kwargs
+    toy_dataset: str, **kwargs
 ) -> tuple[np.ndarray, np.ndarray]:
-    if toy_dataset == "moons" and n_classes == 2:
+    if toy_dataset == "moons":
         X, y = make_moons(
             n_samples=kwargs["n_samples"], noise=kwargs["noise"]
         )
-    elif toy_dataset == "blobs" and n_classes > 1:
+    elif toy_dataset == "blobs":
         X, y = make_blobs(
             n_samples=kwargs["n_samples"],
-            centers=n_classes,
+            centers=kwargs["centers"],
             cluster_std=kwargs["cluster_std"],
         )
     else:
         raise ValueError(
-            f"Invalid toy dataset: {toy_dataset} with n_classes: {n_classes}"
+            f"Invalid toy dataset: {toy_dataset}"
         )
     return X, y

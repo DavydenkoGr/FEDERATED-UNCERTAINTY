@@ -48,9 +48,15 @@ UNCERTAINTY_MEASURES = [
 ]
 
 if dataset_name == DatasetName.BLOBS:
+    # Generate n_classes centers uniformly on a circle
+    radius = 8.0
+    angles = np.linspace(0, 2 * np.pi, n_classes, endpoint=False)
+    centers = np.stack([radius * np.cos(angles), radius * np.sin(angles)], axis=1)
+
     dataset_params = {
         "n_samples": 4000,
         "cluster_std": 1.0,
+        "centers": centers,
     }
 elif dataset_name == DatasetName.MOONS:
     dataset_params = {
@@ -61,7 +67,7 @@ else:
     raise ValueError(f"Invalid dataset: {dataset_name}")
 
 
-X, y = get_dataset(dataset_name, n_classes, **dataset_params)
+X, y = get_dataset(dataset_name, **dataset_params)
 
 X_train_main, X_temp, y_train_main, y_temp = train_test_split(
     X, y, test_size=0.5, random_state=42, stratify=y

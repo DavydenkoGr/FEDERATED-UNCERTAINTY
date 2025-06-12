@@ -33,15 +33,15 @@ lambda_ = 1.0
 criterion = nn.CrossEntropyLoss()
 
 UNCERTAINTY_MEASURES = [
-    # {
-    #     "type": UncertaintyType.RISK,
-    #     "kwargs": {
-    #         "g_name": GName.LOG_SCORE,
-    #         "risk_type": RiskType.BAYES_RISK,
-    #         "gt_approx": ApproximationType.OUTER,
-    #         "T": 1.0,
-    #     },
-    # },
+    {
+        "type": UncertaintyType.RISK,
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.BAYES_RISK,
+            "gt_approx": ApproximationType.OUTER,
+            "T": 1.0,
+        },
+    },
     # {
     #     "type": UncertaintyType.RISK,
     #     "kwargs": {
@@ -69,84 +69,97 @@ UNCERTAINTY_MEASURES = [
     #         "T": 1.0,
     #     },
     # },
-    {
-        "type": UncertaintyType.RISK,
-        "kwargs": {
-            "g_name": GName.LOG_SCORE,
-            "risk_type": RiskType.EXCESS_RISK,
-            "gt_approx": ApproximationType.OUTER,
-            "pred_approx": ApproximationType.OUTER,
-            "T": 1.0,
-        },
-    },
-    {
-        "type": UncertaintyType.RISK,
-        "kwargs": {
-            "g_name": GName.LOG_SCORE,
-            "risk_type": RiskType.EXCESS_RISK,
-            "gt_approx": ApproximationType.INNER,
-            "pred_approx": ApproximationType.OUTER,
-            "T": 1.0,
-        },
-    },
-    {
-        "type": UncertaintyType.RISK,
-        "kwargs": {
-            "g_name": GName.LOG_SCORE,
-            "risk_type": RiskType.EXCESS_RISK,
-            "gt_approx": ApproximationType.OUTER,
-            "pred_approx": ApproximationType.INNER,
-            "T": 1.0,
-        },
-    },
-    {
-        "type": UncertaintyType.RISK,
-        "kwargs": {
-            "g_name": GName.LOG_SCORE,
-            "risk_type": RiskType.EXCESS_RISK,
-            "gt_approx": ApproximationType.OUTER,
-            "pred_approx": ApproximationType.CENTRAL,
-            "T": 1.0,
-        },
-    },
-    {
-        "type": UncertaintyType.RISK,
-        "kwargs": {
-            "g_name": GName.LOG_SCORE,
-            "risk_type": RiskType.EXCESS_RISK,
-            "gt_approx": ApproximationType.INNER,
-            "pred_approx": ApproximationType.CENTRAL,
-            "T": 1.0,
-        },
-    },
-    {
-        "type": UncertaintyType.RISK,
-        "kwargs": {
-            "g_name": GName.LOG_SCORE,
-            "risk_type": RiskType.EXCESS_RISK,
-            "gt_approx": ApproximationType.CENTRAL,
-            "pred_approx": ApproximationType.OUTER,
-            "T": 1.0,
-        },
-    },
-    {
-        "type": UncertaintyType.RISK,
-        "kwargs": {
-            "g_name": GName.LOG_SCORE,
-            "risk_type": RiskType.EXCESS_RISK,
-            "gt_approx": ApproximationType.CENTRAL,
-            "pred_approx": ApproximationType.INNER,
-            "T": 1.0,
-        },
-    },
     # {
-    #     "type": UncertaintyType.MAHALANOBIS,
-    #     "kwargs": {},
+    #     "type": UncertaintyType.RISK,
+    #     "kwargs": {
+    #         "g_name": GName.LOG_SCORE,
+    #         "risk_type": RiskType.EXCESS_RISK,
+    #         "gt_approx": ApproximationType.OUTER,
+    #         "pred_approx": ApproximationType.OUTER,
+    #         "T": 1.0,
+    #     },
     # },
+    # {
+    #     "type": UncertaintyType.RISK,
+    #     "kwargs": {
+    #         "g_name": GName.LOG_SCORE,
+    #         "risk_type": RiskType.EXCESS_RISK,
+    #         "gt_approx": ApproximationType.INNER,
+    #         "pred_approx": ApproximationType.OUTER,
+    #         "T": 1.0,
+    #     },
+    # },
+    # {
+    #     "type": UncertaintyType.RISK,
+    #     "kwargs": {
+    #         "g_name": GName.LOG_SCORE,
+    #         "risk_type": RiskType.EXCESS_RISK,
+    #         "gt_approx": ApproximationType.OUTER,
+    #         "pred_approx": ApproximationType.INNER,
+    #         "T": 1.0,
+    #     },
+    # },
+    # {
+    #     "type": UncertaintyType.RISK,
+    #     "kwargs": {
+    #         "g_name": GName.LOG_SCORE,
+    #         "risk_type": RiskType.EXCESS_RISK,
+    #         "gt_approx": ApproximationType.OUTER,
+    #         "pred_approx": ApproximationType.CENTRAL,
+    #         "T": 1.0,
+    #     },
+    # },
+    # {
+    #     "type": UncertaintyType.RISK,
+    #     "kwargs": {
+    #         "g_name": GName.LOG_SCORE,
+    #         "risk_type": RiskType.EXCESS_RISK,
+    #         "gt_approx": ApproximationType.INNER,
+    #         "pred_approx": ApproximationType.CENTRAL,
+    #         "T": 1.0,
+    #     },
+    # },
+    # {
+    #     "type": UncertaintyType.RISK,
+    #     "kwargs": {
+    #         "g_name": GName.LOG_SCORE,
+    #         "risk_type": RiskType.EXCESS_RISK,
+    #         "gt_approx": ApproximationType.CENTRAL,
+    #         "pred_approx": ApproximationType.OUTER,
+    #         "T": 1.0,
+    #     },
+    # },
+    # {
+    #     "type": UncertaintyType.RISK,
+    #     "kwargs": {
+    #         "g_name": GName.LOG_SCORE,
+    #         "risk_type": RiskType.EXCESS_RISK,
+    #         "gt_approx": ApproximationType.CENTRAL,
+    #         "pred_approx": ApproximationType.INNER,
+    #         "T": 1.0,
+    #     },
+    # },
+    {
+        "type": UncertaintyType.MAHALANOBIS,
+        "kwargs": {},
+    },
 ]
 
+if dataset_name == DatasetName.BLOBS:
+    dataset_params = {
+        "n_samples": 4000,
+        "cluster_std": 1.0,
+    }
+elif dataset_name == DatasetName.MOONS:
+    dataset_params = {
+        "n_samples": 4000,
+        "noise": 0.1,
+    }
+else:
+    raise ValueError(f"Invalid dataset: {dataset_name}")
 
-X, y = get_dataset(dataset_name, n_classes)
+
+X, y = get_dataset(dataset_name, n_classes, **dataset_params)
 
 X_train_main, X_temp, y_train_main, y_temp = train_test_split(
     X, y, test_size=0.5, random_state=42, stratify=y
@@ -207,7 +220,7 @@ grid_tensor, xx, yy = plot_decision_boundaries(
     ensemble, X_test, y_test, accuracies, device, n_classes, return_grid=True
 )
 
-multi_dim_uncertainty = MultiDimensionalUncertainty(UNCERTAINTY_MEASURES)
+multi_dim_uncertainty = MultiDimensionalUncertainty(UNCERTAINTY_MEASURES, positive=False)
 multi_dim_uncertainty.fit(X_calib_logits, X_calib_logits)
 
 grid_points = np.stack([xx.ravel(), yy.ravel()], axis=-1)

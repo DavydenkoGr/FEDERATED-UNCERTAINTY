@@ -80,7 +80,7 @@ class UncertaintyEstimator:
                 raise ValueError(
                     "train_logits must be provided for Mahalanobis uncertainty."
                 )
-            self.model = MahalanobisDistance().fit(train_logits, y_train)
+            self.model = MahalanobisDistance().fit(X=train_logits, y=y_train)
             self.is_fitted = True
         elif self.uncertainty_type == UncertaintyType.RISK:
             # Risk-based uncertainty does not require fitting

@@ -2,83 +2,99 @@ from collections import defaultdict
 import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
 
-
 class MahalanobisDistance(BaseEstimator, TransformerMixin):
     """
-    Scikit-learn style estimator for Mahalanobis uncertainty.
-    Fits mean and covariance on in-distribution logits, and computes
-    Mahalanobis distance for new logits.
+    Scikit-learn style estimator for class-conditional Mahalanobis confidence.
+    Fits per-class means and a tied covariance per ensemble member,
+    then averages the negative squared Mahalanobis distances.
     """
 
     def __init__(self, regularization: float = 1e-6):
         self.regularization = regularization
-        # Per-model, per-class parameters
-        self.class_mean_ = defaultdict(lambda: {})          # { model_idx: {class_label: mean_vector} }
-        self.class_inv_cov_ = defaultdict(lambda: {})       # { model_idx: {class_label: inv_cov_matrix} }
+        # { model_idx: { class_label: mean_vector } }
+        self.class_mean_ = defaultdict(dict)
+        # { model_idx: inverse_covariance_matrix }
+        self.inv_cov_ = {}
         self.n_models_ = None
-
+        self.classes_ = None
 
     def fit(self, X: np.ndarray, y: np.ndarray):
         """
-        Fit class-conditional means and covariances for each model.
+        Estimate class-conditional means and tied covariance for each model.
 
-        Args:
-            X: np.ndarray of shape (n_models, n_samples, n_features)
-            y: np.ndarray of shape (n_samples,)
-        Returns:
-            self
+        Parameters
+        ----------
+        X : array, shape (n_models, n_samples, n_features)
+            Logits or embeddings from each ensemble member.
+        y : array, shape (n_samples,)
+            True class labels for in-distribution data.
+
+        Returns
+        -------
+        self
         """
-        # Number of ensemble members
         self.n_models_ = X.shape[0]
-
-        # Identify all classes once
-        classes = np.unique(y)
+        self.classes_ = np.unique(y)
+        N_total = X.shape[1]
 
         for i in range(self.n_models_):
-            # For each class, compute mean and covariance on model i’s logits
-            for c in classes:
-                # Select logits belonging to class c
-                X_ic = X[i][y == c]
-                # Empirical mean
-                mu_ic = np.mean(X_ic, axis=0)
-                # Empirical covariance with regularization
-                cov_ic = np.cov(X_ic, rowvar=False)
-                cov_ic += np.eye(cov_ic.shape[0]) * self.regularization
-                # Store parameters
-                self.class_mean_[i][c] = mu_ic
-                self.class_inv_cov_[i][c] = np.linalg.inv(cov_ic)
+            Xi = X[i]  # shape: (n_samples, n_features)
+            # 1) Compute per-class means μ̂_{i,c}
+            for c in self.classes_:
+                X_ic = Xi[y == c]
+                self.class_mean_[i][c] = np.mean(X_ic, axis=0)
+
+            # 2) Compute tied covariance Σ̂_i across all classes
+            #    by stacking (X_ic - μ̂_{i,c}) for every class
+            diffs = np.vstack([
+                Xi[y == c] - self.class_mean_[i][c]
+                for c in self.classes_
+            ])  # shape: (N_total, n_features)
+
+            cov = (diffs.T @ diffs) / N_total
+            cov += np.eye(cov.shape[0]) * self.regularization
+
+            # 3) Store inverse covariance
+            self.inv_cov_[i] = np.linalg.inv(cov)
 
         return self
 
-
     def predict(self, X: np.ndarray) -> np.ndarray:
         """
-        Compute class-conditional Mahalanobis distance scores.
+        Compute the averaged Mahalanobis confidence score.
 
-        Args:
-            X: np.ndarray of shape (n_models, n_samples, n_features)
-        Returns:
-            distances: np.ndarray of shape (n_samples,)
+        Parameters
+        ----------
+        X : array, shape (n_models, n_samples, n_features)
+            Test logits or embeddings.
+
+        Returns
+        -------
+        scores : array, shape (n_samples,)
+            Final Mahalanobis-based confidence scores.
         """
         if self.n_models_ is None:
-            raise RuntimeError("Fit must be called before predict.")
+            raise RuntimeError("Must call fit before predict.")
 
-        # Collect per-model minimal distances
-        per_model_dists = []
+        n_models, n_samples, _ = X.shape
+        model_scores = np.zeros((n_models, n_samples))
 
-        for i in range(self.n_models_):
-            # For each sample, compute distance to each class and take min
-            dists_i = []
-            for c, mu_ic in self.class_mean_[i].items():
-                inv_cov_ic = self.class_inv_cov_[i][c]
-                diff = X[i] - mu_ic  # shape: (n_samples, n_features)
-                # Mahalanobis distance per sample for class c
-                m_dist_c = np.sqrt(np.sum(diff @ inv_cov_ic * diff, axis=1))
-                dists_i.append(m_dist_c)
-            # Stack distances for all classes: shape (n_classes, n_samples)
-            dists_i = np.stack(dists_i, axis=0)
-            # Minimum across classes for each sample: shape (n_samples,)
-            per_model_dists.append(np.min(dists_i, axis=0))
+        for i in range(n_models):
+            Xi = X[i]
+            inv_cov = self.inv_cov_[i]
 
-        # Average distances across models: final shape (n_samples,)
-        return np.mean(np.stack(per_model_dists, axis=0), axis=0)
+            # Compute negative squared Mahalanobis for each class
+            per_class_scores = []
+            for c in self.classes_:
+                mu_ic = self.class_mean_[i][c]
+                diff = Xi - mu_ic  # shape: (n_samples, n_features)
+                sq_maha = np.sum((diff @ inv_cov) * diff, axis=1)
+                per_class_scores.append(sq_maha)
+
+            # shape: (n_classes, n_samples)
+            per_class_scores = np.stack(per_class_scores, axis=0)
+            # take the highest (least distance) per sample
+            model_scores[i] = -np.max(-per_class_scores, axis=0)
+
+        # Average across ensemble members
+        return np.mean(model_scores, axis=0)

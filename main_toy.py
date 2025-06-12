@@ -30,6 +30,7 @@ hidden_dim = 32
 n_epochs = 50
 batch_size = 64
 lambda_ = 1.0
+lr = 1e-3
 criterion = nn.CrossEntropyLoss()
 
 UNCERTAINTY_MEASURES = [
@@ -192,6 +193,7 @@ ensemble = train_ensembles(
     n_epochs,
     lambda_=lambda_,
     criterion=criterion,
+    lr=lr,
 )
 
 accuracies = []
@@ -220,9 +222,7 @@ grid_tensor, xx, yy = plot_decision_boundaries(
     ensemble, X_test, y_test, accuracies, device, n_classes, return_grid=True
 )
 
-multi_dim_uncertainty = MultiDimensionalUncertainty(
-    UNCERTAINTY_MEASURES
-)
+multi_dim_uncertainty = MultiDimensionalUncertainty(UNCERTAINTY_MEASURES)
 multi_dim_uncertainty.fit(X_calib_logits, X_calib_logits)
 
 grid_points = np.stack([xx.ravel(), yy.ravel()], axis=-1)

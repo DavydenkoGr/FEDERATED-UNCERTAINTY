@@ -6,9 +6,9 @@ from mdu.unc.multidimensional_uncertainty import MultiDimensionalUncertainty
 from mdu.nn.load_models import get_model
 from mdu.nn.constants import ModelName
 import torch.nn as nn
-from mdu.unc.constants import UncertaintyType
 from mdu.eval.eval_utils import get_ensemble_predictions
 from sklearn.model_selection import train_test_split
+from mdu.vis.toy_plots import plot_decision_boundaries
 
 
 def eval_unc_decomp(
@@ -16,16 +16,17 @@ def eval_unc_decomp(
     y: np.ndarray,
     test_point: np.ndarray,
     device: torch.device,
+    calib_ratio: float,
+    val_ratio: float,
     uncertainty_measures: list[dict],
-    samples_per_class: list[int] = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024],
-    n_epochs: int = 100,
-    input_dim: int = 2,
-    n_members: int = 20,
-    batch_size: int = 64,
-    lambda_: float = 1.0,
+    n_epochs: int,
+    input_dim: int,
+    n_members: int,
+    batch_size: int,
+    lambda_: float,
+    samples_per_class: list[int] = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512],
     criterion: nn.Module = nn.CrossEntropyLoss(),
-    calib_ratio: float = 0.1,
-    val_ratio: float = 0.2,
+    lr: float = 1e-3,
 ):
     results = []
     n_classes = len(np.unique(y))
@@ -82,6 +83,18 @@ def eval_unc_decomp(
                 batch_size=batch_size,
                 lambda_=lambda_,
                 criterion=criterion,
+                lr=lr,
+            )
+
+            plot_decision_boundaries(
+                ensemble,
+                X_train,
+                y_train,
+                None,
+                device,
+                n_classes,
+                return_grid=False,
+                name=f"toy_2d_{n_samples}",
             )
 
             val_accuracies = []

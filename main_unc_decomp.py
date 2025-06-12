@@ -21,11 +21,12 @@ n_classes = 2
 device = torch.device("cuda:0")
 n_members = 50
 input_dim = 2
-n_epochs = 30
+n_epochs = 50
 batch_size = 64
 lambda_ = 0.0
-calib_ratio = 0.1
+calib_ratio = 0.2
 val_ratio = 0.2
+lr = 1e-2
 criterion = nn.CrossEntropyLoss()
 
 UNCERTAINTY_MEASURES = [
@@ -82,6 +83,7 @@ res = eval_unc_decomp(
     criterion=criterion,
     calib_ratio=calib_ratio,
     val_ratio=val_ratio,
+    lr=lr,
 )
 
 uncertainty_keys = set()

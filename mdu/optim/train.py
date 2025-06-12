@@ -12,8 +12,9 @@ def train_ensembles(
     y_tensor: torch.Tensor,
     batch_size: int,
     n_epochs: int,
-    lambda_: float = 1.0,
-    criterion: nn.Module = nn.CrossEntropyLoss(),
+    lambda_: float,
+    criterion: nn.Module,
+    lr: float,
 ):
     n_members = len(models)
 
@@ -21,7 +22,7 @@ def train_ensembles(
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
     for i, model in tqdm(enumerate(models)):
-        optimizer = optim.AdamW(model.parameters(), lr=1e-3)
+        optimizer = optim.AdamW(model.parameters(), lr=lr)
 
         print(f"\nTraining model {i + 1}/{n_members}")
         for epoch in range(n_epochs):

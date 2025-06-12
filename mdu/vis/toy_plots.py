@@ -26,10 +26,11 @@ def plot_decision_boundaries(
     ensemble: list[torch.nn.Module],
     X_test: np.ndarray,
     y_test: np.ndarray,
-    accuracies: list[float],
+    accuracies: Optional[list[float]],
     device: str,
     n_classes: int,
     return_grid: bool = True,
+    name: str = "2d_ensemble_decision_boundaries",
 ) -> Optional[tuple[torch.Tensor, np.ndarray, np.ndarray]]:
     """
     Plot the decision boundaries of an ensemble of models.
@@ -45,8 +46,12 @@ def plot_decision_boundaries(
     grid_tensor = torch.tensor(grid, dtype=torch.float32, device=device)
 
     # Calculate mean and std of ensemble accuracies
-    mean_acc = np.mean(accuracies)
-    std_acc = np.std(accuracies)
+    if accuracies is not None:
+        mean_acc = np.mean(accuracies)
+        std_acc = np.std(accuracies)
+    else:
+        mean_acc = None
+        std_acc = None
 
     fig, ax = plt.subplots(figsize=(12, 10), dpi=150)
 
@@ -83,11 +88,14 @@ def plot_decision_boundaries(
     )
 
     # Style tweaks for publication
-    ax.set_title(
-        f"Ensemble Decision Boundaries\nMean accuracy: {mean_acc:.3f} ± {std_acc:.3f}",
-        fontsize=24,
-        pad=20,
-    )
+    if mean_acc is not None:
+        ax.set_title(
+            f"Ensemble Decision Boundaries\nMean accuracy: {mean_acc:.3f} ± {std_acc:.3f}",
+            fontsize=24,
+            pad=20,
+        )
+    else:
+        ax.set_title(f"Ensemble Decision Boundaries", fontsize=24, pad=20)
     ax.set_xlabel("$x_1$", fontsize=20)
     ax.set_ylabel("$x_2$", fontsize=20)
     ax.tick_params(axis="both", which="major", labelsize=17)
@@ -102,7 +110,7 @@ def plot_decision_boundaries(
 
     # Ensure the pics directory exists
     os.makedirs("pics", exist_ok=True)
-    plt.savefig("pics/2d_ensemble_decision_boundaries.pdf", bbox_inches="tight")
+    plt.savefig(f"pics/{name}.pdf", bbox_inches="tight")
 
     plt.show()
 

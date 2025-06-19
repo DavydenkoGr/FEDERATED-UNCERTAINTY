@@ -9,13 +9,13 @@ import matplotlib as mpl
 # Set global font sizes for a publication-quality figure
 mpl.rcParams.update(
     {
-        "font.size": 22,
-        "axes.titlesize": 26,
-        "axes.labelsize": 24,
-        "xtick.labelsize": 20,
-        "ytick.labelsize": 20,
+        "font.size": 32,
+        "axes.titlesize": 32,
+        "axes.labelsize": 30,
+        "xtick.labelsize": 30,
+        "ytick.labelsize": 30,
         "legend.fontsize": 20,
-        "figure.titlesize": 28,
+        "figure.titlesize": 32,
         "pdf.fonttype": 42,  # For editable text in PDF
         "ps.fonttype": 42,
     }
@@ -206,7 +206,7 @@ def plot_uncertainty_measures(xx, yy, uncertainty_measures_dict, X_test=None):
         axes[idx].set_visible(False)
 
     # Save and display
-    plt.savefig("./pics/uq_grid_visualization.pdf", bbox_inches="tight", dpi=300)
+    plt.savefig("./pics/uq_grid_visualization.pdf", bbox_inches="tight", dpi=150)
     plt.show()
 
 

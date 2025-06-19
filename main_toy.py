@@ -42,7 +42,7 @@ UNCERTAINTY_MEASURES = [
     },
     {
         "type": UncertaintyType.MAHALANOBIS,
-        "print_name": "Mahalanobis distance",
+        "print_name": "Mahalanobis score",
         "kwargs": {},
     },
 ]
@@ -130,7 +130,7 @@ grid_tensor, xx, yy = plot_decision_boundaries(
     ensemble, X_test, y_test, accuracies, device, n_classes, return_grid=True
 )
 
-multi_dim_uncertainty = MultiDimensionalUncertainty(UNCERTAINTY_MEASURES, positive=False)
+multi_dim_uncertainty = MultiDimensionalUncertainty(UNCERTAINTY_MEASURES, positive=True)
 multi_dim_uncertainty.fit(logits_train=X_calib_logits, y_train=y_calib, logits_calib=X_calib_logits)
 
 grid_points = np.stack([xx.ravel(), yy.ravel()], axis=-1)

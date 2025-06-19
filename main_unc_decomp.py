@@ -17,12 +17,12 @@ n_classes = 2
 device = torch.device("cuda:0")
 n_members = 50
 input_dim = 2
-n_epochs = 10
+n_epochs = 50
 batch_size = 64
-lambda_ = 1.0
+lambda_ = 0.0
 calib_ratio = 0.2
 val_ratio = 0.2
-lr = 1.0
+lr = 1e-1
 criterion = nn.CrossEntropyLoss()
 
 UNCERTAINTY_MEASURES = [
@@ -48,9 +48,15 @@ UNCERTAINTY_MEASURES = [
 ]
 
 if dataset_name == DatasetName.BLOBS:
+    # Generate n_classes centers uniformly on a circle
+    radius = 2.0
+    angles = np.linspace(0, 2 * np.pi, n_classes, endpoint=False)
+    centers = np.stack([radius * np.cos(angles), radius * np.sin(angles)], axis=1)
+
     dataset_params = {
         "n_samples": 4000,
         "cluster_std": 1.0,
+        "centers": centers,
     }
 elif dataset_name == DatasetName.MOONS:
     dataset_params = {
@@ -60,7 +66,8 @@ elif dataset_name == DatasetName.MOONS:
 else:
     raise ValueError(f"Invalid dataset: {dataset_name}")
 
-X, y = get_dataset(dataset_name, n_classes, **dataset_params)
+
+X, y = get_dataset(dataset_name, **dataset_params)
 
 X = X + 3.0
 

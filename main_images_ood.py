@@ -16,7 +16,6 @@ from configs.uncertainty_measures_configs import (
 
 UNCERTAINTY_MEASURES = BAYES_DIFFERENT_INSTANTIATIONS
 
-N_MODELS = 20
 ENSEMBLE_GROUPS = [
     [0, 1, 2, 3, 4],
     [5, 6, 7, 8, 9],

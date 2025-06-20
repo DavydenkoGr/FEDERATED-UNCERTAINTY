@@ -41,7 +41,7 @@ ood_dataset = DatasetName.TINY_IMAGENET.value
 UNCERTAINTY_MEASURES = [
     {
         "type": UncertaintyType.RISK,
-        "print_name": "EPKL",
+        "print_name": "EXC 1 1 (log)",
         "kwargs": {
             "g_name": GName.LOG_SCORE,
             "risk_type": RiskType.EXCESS_RISK,
@@ -50,28 +50,72 @@ UNCERTAINTY_MEASURES = [
             "T": 1.0,
         },
     },
-    {
-        "type": UncertaintyType.RISK,
-        "print_name": "Mutual Information",
-        "kwargs": {
-            "g_name": GName.LOG_SCORE,
-            "risk_type": RiskType.EXCESS_RISK,
-            "gt_approx": ApproximationType.INNER,
-            "pred_approx": ApproximationType.OUTER,
-            "T": 1.0,
-        },
-    },
-    {
-        "type": UncertaintyType.RISK,
-        "print_name": "Reverse Mutual Information",
-        "kwargs": {
-            "g_name": GName.LOG_SCORE,
-            "risk_type": RiskType.EXCESS_RISK,
-            "gt_approx": ApproximationType.OUTER,
-            "pred_approx": ApproximationType.INNER,
-            "T": 1.0,
-        },
-    },
+    # {
+    #     "type": UncertaintyType.RISK,
+    #     "print_name": "EXC 1 1 (brier)",
+    #     "kwargs": {
+    #         "g_name": GName.BRIER_SCORE,
+    #         "risk_type": RiskType.EXCESS_RISK,
+    #         "gt_approx": ApproximationType.OUTER,
+    #         "pred_approx": ApproximationType.OUTER,
+    #         "T": 1.0,
+    #     },
+    # },
+    # {
+    #     "type": UncertaintyType.RISK,
+    #     "print_name": "EXC 1 1 (spherical)",
+    #     "kwargs": {
+    #         "g_name": GName.SPHERICAL_SCORE,
+    #         "risk_type": RiskType.EXCESS_RISK,
+    #         "gt_approx": ApproximationType.OUTER,
+    #         "pred_approx": ApproximationType.OUTER,
+    #         "T": 1.0,
+    #     },
+    # },
+    # {
+    #     "type": UncertaintyType.RISK,
+    #     "print_name": "Exc 1 3",
+    #     "kwargs": {
+    #         "g_name": GName.LOG_SCORE,
+    #         "risk_type": RiskType.EXCESS_RISK,
+    #         "gt_approx": ApproximationType.OUTER,
+    #         "pred_approx": ApproximationType.CENTRAL,
+    #         "T": 1.0,
+    #     },
+    # },
+    # {
+    #     "type": UncertaintyType.RISK,
+    #     "print_name": "Exc 3 1",
+    #     "kwargs": {
+    #         "g_name": GName.LOG_SCORE,
+    #         "risk_type": RiskType.EXCESS_RISK,
+    #         "gt_approx": ApproximationType.CENTRAL,
+    #         "pred_approx": ApproximationType.OUTER,
+    #         "T": 1.0,
+    #     },
+    # },
+    # {
+    #     "type": UncertaintyType.RISK,
+    #     "print_name": "Exc 3 2",
+    #     "kwargs": {
+    #         "g_name": GName.LOG_SCORE,
+    #         "risk_type": RiskType.EXCESS_RISK,
+    #         "gt_approx": ApproximationType.CENTRAL,
+    #         "pred_approx": ApproximationType.INNER,
+    #         "T": 1.0,
+    #     },
+    # },
+    # {
+    #     "type": UncertaintyType.RISK,
+    #     "print_name": "Exc 2 3",
+    #     "kwargs": {
+    #         "g_name": GName.LOG_SCORE,
+    #         "risk_type": RiskType.EXCESS_RISK,
+    #         "gt_approx": ApproximationType.INNER,
+    #         "pred_approx": ApproximationType.CENTRAL,
+    #         "T": 1.0,
+    #     },
+    # },
     {
         "type": UncertaintyType.MAHALANOBIS,
         "print_name": "Mahalanobis score",
@@ -152,7 +196,6 @@ print(f"test_idx.shape: {test_idx.shape}")
 print(f"For metrics: {[m['print_name'] for m in UNCERTAINTY_MEASURES]}")
 
 
-# Prepare data for DataFrame
 rows = []
 for metric, aucs in results.items():
     mean_auc = np.mean(aucs)
@@ -181,14 +224,3 @@ df = pd.DataFrame(
 
 print("\nSummary of ROC AUCs across groups:")
 print(df)
-
-# # Optionally, plot the mean and std as a barplot
-# import matplotlib.pyplot as plt
-
-# plt.figure(figsize=(10, 5))
-# plt.bar(df["Metric"], df["Mean ROC AUC"], yerr=df["Std ROC AUC"], capsize=5)
-# plt.ylabel("Mean ROC AUC")
-# plt.title(f"Uncertainty Metrics ROC AUC\n{ind_dataset} vs {ood_dataset}")
-# plt.xticks(rotation=45)
-# plt.tight_layout()
-# plt.show()

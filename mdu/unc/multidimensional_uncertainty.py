@@ -66,7 +66,11 @@ class UncertaintyEstimator:
         else:
             return str(self.uncertainty_type)
 
-    def fit(self, train_logits: Optional[np.ndarray] = None, y_train: Optional[np.ndarray] = None):
+    def fit(
+        self,
+        train_logits: Optional[np.ndarray] = None,
+        y_train: Optional[np.ndarray] = None,
+    ):
         """
         Fit the uncertainty estimator if required.
 
@@ -196,7 +200,9 @@ class MultiDimensionalUncertainty:
             est.print_name for est in self.uncertainty_estimators
         ]
 
-    def fit(self, logits_train: np.ndarray, y_train: np.ndarray, logits_calib: np.ndarray):
+    def fit(
+        self, logits_train: np.ndarray, y_train: np.ndarray, logits_calib: np.ndarray
+    ):
         """
         Fit the uncertainty ensemble.
 

@@ -11,6 +11,7 @@ from mdu.unc.risk_metrics.constants import GName, RiskType, ApproximationType
 from mdu.unc.multidimensional_uncertainty import MultiDimensionalUncertainty
 from mdu.eval.eval_utils import get_ensemble_predictions
 from mdu.data.load_dataset import get_dataset
+from mdu.data.data_utils import split_dataset
 from mdu.data.constants import DatasetName
 
 set_all_seeds(1)
@@ -69,15 +70,16 @@ else:
 
 X, y = get_dataset(dataset_name, **dataset_params)
 
-X_train_main, X_temp, y_train_main, y_temp = train_test_split(
-    X, y, test_size=0.5, random_state=42, stratify=y
-)
-X_train_cond, X_temp2, y_train_cond, y_temp2 = train_test_split(
-    X_temp, y_temp, test_size=0.5, random_state=42, stratify=y_temp
-)
-X_calib, X_test, y_calib, y_test = train_test_split(
-    X_temp2, y_temp2, test_size=0.5, random_state=42, stratify=y_temp2
-)
+(
+    X_train_main,
+    X_train_cond,
+    X_calib,
+    X_test,
+    y_train_main,
+    y_train_cond,
+    y_calib,
+    y_test,
+) = split_dataset(X, y)
 
 X_tensor = torch.tensor(X_train_main, dtype=torch.float32, device=device)
 y_tensor = torch.tensor(y_train_main, dtype=torch.long, device=device)
@@ -109,12 +111,8 @@ y_test_tensor = torch.tensor(y_test, dtype=torch.long, device=device)
 
 X_calib_tensor = torch.tensor(X_calib, dtype=torch.float32, device=device)
 
-X_test_logits = get_ensemble_predictions(
-    ensemble, X_test_tensor, return_logits=True
-)
-X_calib_logits = get_ensemble_predictions(
-    ensemble, X_calib_tensor, return_logits=True
-)
+X_test_logits = get_ensemble_predictions(ensemble, X_test_tensor, return_logits=True)
+X_calib_logits = get_ensemble_predictions(ensemble, X_calib_tensor, return_logits=True)
 
 for i, model in enumerate(ensemble):
     model.eval()
@@ -131,7 +129,9 @@ grid_tensor, xx, yy = plot_decision_boundaries(
 )
 
 multi_dim_uncertainty = MultiDimensionalUncertainty(UNCERTAINTY_MEASURES, positive=True)
-multi_dim_uncertainty.fit(logits_train=X_calib_logits, y_train=y_calib, logits_calib=X_calib_logits)
+multi_dim_uncertainty.fit(
+    logits_train=X_calib_logits, y_train=y_calib, logits_calib=X_calib_logits
+)
 
 grid_points = np.stack([xx.ravel(), yy.ravel()], axis=-1)
 

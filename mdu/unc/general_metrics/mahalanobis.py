@@ -2,6 +2,7 @@ from collections import defaultdict
 import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
 
+
 class MahalanobisDistance(BaseEstimator, TransformerMixin):
     """
     Scikit-learn style estimator for class-conditional Mahalanobis confidence.
@@ -46,10 +47,9 @@ class MahalanobisDistance(BaseEstimator, TransformerMixin):
 
             # 2) Compute tied covariance Σ̂_i across all classes
             #    by stacking (X_ic - μ̂_{i,c}) for every class
-            diffs = np.vstack([
-                Xi[y == c] - self.class_mean_[i][c]
-                for c in self.classes_
-            ])  # shape: (N_total, n_features)
+            diffs = np.vstack(
+                [Xi[y == c] - self.class_mean_[i][c] for c in self.classes_]
+            )  # shape: (N_total, n_features)
 
             cov = (diffs.T @ diffs) / N_total
             cov += np.eye(cov.shape[0]) * self.regularization

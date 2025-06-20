@@ -2,12 +2,19 @@ from mdu.eval.eval_utils import load_pickle
 import numpy as np
 from collections import defaultdict
 from mdu.data.constants import DatasetName
-from mdu.unc.constants import UncertaintyType
-from mdu.unc.risk_metrics.constants import GName, RiskType, ApproximationType
 from sklearn.metrics import roc_auc_score
 from mdu.data.data_utils import split_dataset_indices
 from mdu.unc.multidimensional_uncertainty import MultiDimensionalUncertainty
 import pandas as pd
+from configs.uncertainty_measures_configs import (
+    MAHALANOBIS_AND_BAYES_RISK,
+    EXCESSES_DIFFERENT_INSTANTIATIONS,
+    EXCESSES_DIFFERENT_APPROXIMATIONS,
+    BAYES_DIFFERENT_APPROXIMATIONS,
+    BAYES_DIFFERENT_INSTANTIATIONS,
+)
+
+UNCERTAINTY_MEASURES = BAYES_DIFFERENT_INSTANTIATIONS
 
 N_MODELS = 20
 ENSEMBLE_GROUPS = [
@@ -19,109 +26,6 @@ ENSEMBLE_GROUPS = [
 
 ind_dataset = DatasetName.CIFAR10.value
 ood_dataset = DatasetName.TINY_IMAGENET.value
-
-# UNCERTAINTY_MEASURES = [
-#     {
-#         "type": UncertaintyType.RISK,
-#         "print_name": "Predictive entropy",
-#         "kwargs": {
-#             "g_name": GName.LOG_SCORE,
-#             "risk_type": RiskType.BAYES_RISK,
-#             "gt_approx": ApproximationType.OUTER,
-#             "T": 1.0,
-#         },
-#     },
-#     {
-#         "type": UncertaintyType.MAHALANOBIS,
-#         "print_name": "Mahalanobis score",
-#         "kwargs": {},
-#     },
-# ]
-
-UNCERTAINTY_MEASURES = [
-    {
-        "type": UncertaintyType.RISK,
-        "print_name": "EXC 1 1 (log)",
-        "kwargs": {
-            "g_name": GName.LOG_SCORE,
-            "risk_type": RiskType.EXCESS_RISK,
-            "gt_approx": ApproximationType.OUTER,
-            "pred_approx": ApproximationType.OUTER,
-            "T": 1.0,
-        },
-    },
-    # {
-    #     "type": UncertaintyType.RISK,
-    #     "print_name": "EXC 1 1 (brier)",
-    #     "kwargs": {
-    #         "g_name": GName.BRIER_SCORE,
-    #         "risk_type": RiskType.EXCESS_RISK,
-    #         "gt_approx": ApproximationType.OUTER,
-    #         "pred_approx": ApproximationType.OUTER,
-    #         "T": 1.0,
-    #     },
-    # },
-    # {
-    #     "type": UncertaintyType.RISK,
-    #     "print_name": "EXC 1 1 (spherical)",
-    #     "kwargs": {
-    #         "g_name": GName.SPHERICAL_SCORE,
-    #         "risk_type": RiskType.EXCESS_RISK,
-    #         "gt_approx": ApproximationType.OUTER,
-    #         "pred_approx": ApproximationType.OUTER,
-    #         "T": 1.0,
-    #     },
-    # },
-    # {
-    #     "type": UncertaintyType.RISK,
-    #     "print_name": "Exc 1 3",
-    #     "kwargs": {
-    #         "g_name": GName.LOG_SCORE,
-    #         "risk_type": RiskType.EXCESS_RISK,
-    #         "gt_approx": ApproximationType.OUTER,
-    #         "pred_approx": ApproximationType.CENTRAL,
-    #         "T": 1.0,
-    #     },
-    # },
-    # {
-    #     "type": UncertaintyType.RISK,
-    #     "print_name": "Exc 3 1",
-    #     "kwargs": {
-    #         "g_name": GName.LOG_SCORE,
-    #         "risk_type": RiskType.EXCESS_RISK,
-    #         "gt_approx": ApproximationType.CENTRAL,
-    #         "pred_approx": ApproximationType.OUTER,
-    #         "T": 1.0,
-    #     },
-    # },
-    # {
-    #     "type": UncertaintyType.RISK,
-    #     "print_name": "Exc 3 2",
-    #     "kwargs": {
-    #         "g_name": GName.LOG_SCORE,
-    #         "risk_type": RiskType.EXCESS_RISK,
-    #         "gt_approx": ApproximationType.CENTRAL,
-    #         "pred_approx": ApproximationType.INNER,
-    #         "T": 1.0,
-    #     },
-    # },
-    # {
-    #     "type": UncertaintyType.RISK,
-    #     "print_name": "Exc 2 3",
-    #     "kwargs": {
-    #         "g_name": GName.LOG_SCORE,
-    #         "risk_type": RiskType.EXCESS_RISK,
-    #         "gt_approx": ApproximationType.INNER,
-    #         "pred_approx": ApproximationType.CENTRAL,
-    #         "T": 1.0,
-    #     },
-    # },
-    {
-        "type": UncertaintyType.MAHALANOBIS,
-        "print_name": "Mahalanobis score",
-        "kwargs": {},
-    },
-]
 
 results = defaultdict(list)
 

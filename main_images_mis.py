@@ -8,6 +8,16 @@ from sklearn.metrics import roc_auc_score
 from mdu.data.data_utils import split_dataset_indices
 from mdu.unc.multidimensional_uncertainty import MultiDimensionalUncertainty
 import pandas as pd
+from configs.uncertainty_measures_configs import (
+    MAHALANOBIS_AND_BAYES_RISK,
+    EXCESSES_DIFFERENT_INSTANTIATIONS,
+    EXCESSES_DIFFERENT_APPROXIMATIONS,
+    BAYES_DIFFERENT_APPROXIMATIONS,
+    BAYES_DIFFERENT_INSTANTIATIONS,
+)
+
+UNCERTAINTY_MEASURES = BAYES_DIFFERENT_APPROXIMATIONS
+
 
 N_MODELS = 20
 ENSEMBLE_GROUPS = [
@@ -19,44 +29,6 @@ ENSEMBLE_GROUPS = [
 
 train_dataset = DatasetName.CIFAR100_NOISY.value
 eval_dataset = DatasetName.CIFAR100.value
-
-UNCERTAINTY_MEASURES = [
-    {
-        "type": UncertaintyType.RISK,
-        "print_name": "R b 2",
-        "kwargs": {
-            "g_name": GName.LOG_SCORE,
-            "risk_type": RiskType.BAYES_RISK,
-            "gt_approx": ApproximationType.OUTER,
-            "T": 1.0,
-        },
-    },
-    {
-        "type": UncertaintyType.RISK,
-        "print_name": "R b 1",
-        "kwargs": {
-            "g_name": GName.LOG_SCORE,
-            "risk_type": RiskType.BAYES_RISK,
-            "gt_approx": ApproximationType.INNER,
-            "T": 1.0,
-        },
-    },
-    {
-        "type": UncertaintyType.RISK,
-        "print_name": "R b 3",
-        "kwargs": {
-            "g_name": GName.LOG_SCORE,
-            "risk_type": RiskType.BAYES_RISK,
-            "gt_approx": ApproximationType.CENTRAL,
-            "T": 1.0,
-        },
-    },
-    # {
-    #     "type": UncertaintyType.MAHALANOBIS,
-    #     "print_name": "Mahalanobis score",
-    #     "kwargs": {},
-    # },
-]
 
 results = defaultdict(list)
 

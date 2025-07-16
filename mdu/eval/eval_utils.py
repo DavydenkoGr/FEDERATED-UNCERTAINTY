@@ -1,6 +1,14 @@
 import numpy as np
 import torch.nn.functional as F
 import torch
+import pickle
+from typing import Any
+
+
+def load_pickle(file_path: str) -> Any:
+    with open(file_path, "rb") as f:
+        data = pickle.load(f)
+    return data
 
 
 def get_ensemble_predictions(

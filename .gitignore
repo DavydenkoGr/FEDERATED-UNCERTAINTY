@@ -1,6 +1,7 @@
 # Custom
 
 pics/
+model_weights/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

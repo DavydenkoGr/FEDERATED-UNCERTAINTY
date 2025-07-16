@@ -25,8 +25,8 @@ ENSEMBLE_GROUPS = [
     [15, 16, 17, 18, 19],
 ]
 
-train_dataset = DatasetName.CIFAR100_NOISY.value
-eval_dataset = DatasetName.CIFAR100.value
+train_dataset = DatasetName.CIFAR10_NOISY.value
+eval_dataset = DatasetName.CIFAR10.value
 
 results = defaultdict(list)
 

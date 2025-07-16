@@ -1,6 +1,44 @@
 from mdu.unc.constants import UncertaintyType
 from mdu.unc.risk_metrics.constants import GName, RiskType, ApproximationType
 
+
+SINGLE_MEASURE = [
+    {
+        "type": UncertaintyType.RISK,
+        "print_name": "EXC 1 1 (log)",
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.EXCESS_RISK,
+            "gt_approx": ApproximationType.OUTER,
+            "pred_approx": ApproximationType.OUTER,
+            "T": 1.0,
+        },
+    },
+]
+
+BAYES_RISK_AND_BAYES_RISK = [
+    {
+        "type": UncertaintyType.RISK,
+        "print_name": "Predictive entropy 1",
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.BAYES_RISK,
+            "gt_approx": ApproximationType.OUTER,
+            "T": 1.0,
+        },
+    },
+    {
+        "type": UncertaintyType.RISK,
+        "print_name": "Predictive entropy 2",
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.BAYES_RISK,
+            "gt_approx": ApproximationType.OUTER,
+            "T": 1.0,
+        },
+    },
+]
+
 MAHALANOBIS_AND_BAYES_RISK = [
     {
         "type": UncertaintyType.RISK,

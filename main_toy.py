@@ -13,6 +13,16 @@ from mdu.eval.eval_utils import get_ensemble_predictions
 from mdu.data.load_dataset import get_dataset
 from mdu.data.data_utils import split_dataset
 from mdu.data.constants import DatasetName
+from configs.uncertainty_measures_configs import (
+    MAHALANOBIS_AND_BAYES_RISK,
+    EXCESSES_DIFFERENT_INSTANTIATIONS,
+    EXCESSES_DIFFERENT_APPROXIMATIONS,
+    BAYES_DIFFERENT_APPROXIMATIONS,
+    BAYES_DIFFERENT_INSTANTIATIONS,
+    BAYES_RISK_AND_BAYES_RISK,
+)
+
+UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK
 
 set_all_seeds(1)
 
@@ -30,23 +40,6 @@ lambda_ = 1.0
 lr = 1e-3
 criterion = nn.CrossEntropyLoss()
 
-UNCERTAINTY_MEASURES = [
-    {
-        "type": UncertaintyType.RISK,
-        "print_name": "Predictive entropy",
-        "kwargs": {
-            "g_name": GName.LOG_SCORE,
-            "risk_type": RiskType.BAYES_RISK,
-            "gt_approx": ApproximationType.OUTER,
-            "T": 1.0,
-        },
-    },
-    {
-        "type": UncertaintyType.MAHALANOBIS,
-        "print_name": "Mahalanobis score",
-        "kwargs": {},
-    },
-]
 
 if dataset_name == DatasetName.BLOBS:
     # Generate n_classes centers uniformly on a circle

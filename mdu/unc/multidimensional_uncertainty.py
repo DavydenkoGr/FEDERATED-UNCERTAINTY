@@ -1,7 +1,7 @@
 from typing import List, Dict, Any, Optional
 import numpy as np
-from ..otcp.functions import OTCPOrdering
-from .constants import UncertaintyType
+from ..vqr.otcp.functions import OTCPOrdering
+from .constants import UncertaintyType, VectorQuantileModel
 from .risk_metrics.create_specific_risks import get_risk_approximation
 from .risk_metrics.constants import RiskType
 from .general_metrics.mahalanobis import MahalanobisDistance
@@ -158,7 +158,10 @@ class MultiDimensionalUncertainty:
     """
 
     def __init__(
-        self, uncertainty_configs: List[Dict[str, Any]], positive: bool = True
+        self,
+        uncertainty_configs: List[Dict[str, Any]],
+        multidim_model: VectorQuantileModel,
+        positive: bool = True,
     ):
         """
         Initialize the ensemble with a list of uncertainty measure configurations.
@@ -189,7 +192,12 @@ class MultiDimensionalUncertainty:
             self.uncertainty_estimators.append(estimator)
 
         # Optimal Transport scorer for combining uncertainty measures
-        self.ot_scorer = OTCPOrdering(positive=positive)
+        if multidim_model == VectorQuantileModel.OTCP:
+            self.vqr_model = OTCPOrdering(positive=positive)
+        elif multidim_model == VectorQuantileModel.CPFLOW:
+            self.vqr_model = CPFlowOrdering(positive=positive)
+        else:
+            raise ValueError(f"Unknown vector quantile model: {multidim_model}")
 
         # Track fitting state
         self.is_fitted = False
@@ -228,8 +236,8 @@ class MultiDimensionalUncertainty:
         # Step 3: Stack uncertainties into a matrix (n_samples, n_measures)
         uncertainty_matrix = np.column_stack(calibration_uncertainties)
 
-        # Step 4: Fit Optimal Transport on the combined uncertainty measures
-        self.ot_scorer.fit(uncertainty_matrix)
+        # Step 4: Fit VQR on the combined uncertainty measures
+        self.vqr_model.fit(uncertainty_matrix)
 
         self.is_fitted = True
         return self
@@ -264,8 +272,8 @@ class MultiDimensionalUncertainty:
         # Step 2: Stack uncertainties into a matrix (n_samples, n_measures)
         uncertainty_matrix = np.column_stack(test_uncertainties)
 
-        # Step 3: Apply Optimal Transport mapping
-        grid_l2_norms, ordering_indices = self.ot_scorer.predict(uncertainty_matrix)
+        # Step 3: Apply VQR
+        grid_l2_norms, ordering_indices = self.vqr_model.predict(uncertainty_matrix)
 
         # Step 4: Create dictionary mapping uncertainty measure names to their scores
         uncertainty_scores = {}

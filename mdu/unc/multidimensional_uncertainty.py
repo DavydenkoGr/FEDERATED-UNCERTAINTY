@@ -1,6 +1,7 @@
 from typing import List, Dict, Any, Optional
 import numpy as np
 from ..vqr.otcp.functions import OTCPOrdering
+from ..vqr.cpflow.functions import CPFlowOrdering
 from .constants import UncertaintyType, VectorQuantileModel
 from .risk_metrics.create_specific_risks import get_risk_approximation
 from .risk_metrics.constants import RiskType
@@ -161,7 +162,7 @@ class MultiDimensionalUncertainty:
         self,
         uncertainty_configs: List[Dict[str, Any]],
         multidim_model: VectorQuantileModel,
-        positive: bool = True,
+        multidim_params: Dict[str, Any],
     ):
         """
         Initialize the ensemble with a list of uncertainty measure configurations.
@@ -169,7 +170,6 @@ class MultiDimensionalUncertainty:
         Args:
             uncertainty_configs: List of dictionaries, each containing configuration
                                for one UncertaintyEstimator (type and kwargs)
-            positive: Whether to use positive reference distribution for Optimal Transport
 
         Example:
             configs = [
@@ -179,7 +179,6 @@ class MultiDimensionalUncertainty:
             ensemble = UncertaintyEnsemble(configs)
         """
         self.uncertainty_configs = uncertainty_configs
-        self.positive = positive
 
         # Initialize individual uncertainty estimators
         self.uncertainty_estimators = []
@@ -193,9 +192,9 @@ class MultiDimensionalUncertainty:
 
         # Optimal Transport scorer for combining uncertainty measures
         if multidim_model == VectorQuantileModel.OTCP:
-            self.vqr_model = OTCPOrdering(positive=positive)
+            self.vqr_model = OTCPOrdering(**multidim_params)
         elif multidim_model == VectorQuantileModel.CPFLOW:
-            self.vqr_model = CPFlowOrdering(positive=positive)
+            self.vqr_model = CPFlowOrdering(**multidim_params)
         else:
             raise ValueError(f"Unknown vector quantile model: {multidim_model}")
 
@@ -209,7 +208,11 @@ class MultiDimensionalUncertainty:
         ]
 
     def fit(
-        self, logits_train: np.ndarray, y_train: np.ndarray, logits_calib: np.ndarray
+        self,
+        logits_train: np.ndarray,
+        y_train: np.ndarray,
+        logits_calib: np.ndarray,
+        train_kwargs: Optional[Dict[str, Any]] = None,
     ):
         """
         Fit the uncertainty ensemble.
@@ -237,7 +240,7 @@ class MultiDimensionalUncertainty:
         uncertainty_matrix = np.column_stack(calibration_uncertainties)
 
         # Step 4: Fit VQR on the combined uncertainty measures
-        self.vqr_model.fit(uncertainty_matrix)
+        self.vqr_model.fit(uncertainty_matrix, **train_kwargs)
 
         self.is_fitted = True
         return self

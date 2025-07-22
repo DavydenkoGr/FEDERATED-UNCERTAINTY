@@ -6,8 +6,7 @@ from mdu.nn.constants import ModelName
 from mdu.optim.train import train_ensembles
 import torch.nn as nn
 from mdu.vis.toy_plots import plot_decision_boundaries, plot_uncertainty_measures
-from mdu.unc.constants import UncertaintyType
-from mdu.unc.risk_metrics.constants import GName, RiskType, ApproximationType
+from mdu.unc.constants import VectorQuantileModel
 from mdu.unc.multidimensional_uncertainty import MultiDimensionalUncertainty
 from mdu.eval.eval_utils import get_ensemble_predictions
 from mdu.data.load_dataset import get_dataset
@@ -26,8 +25,6 @@ UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK
 
 set_all_seeds(1)
 
-from sklearn.model_selection import train_test_split
-
 dataset_name = DatasetName.BLOBS
 n_classes = 10
 device = torch.device("cuda:0")
@@ -39,6 +36,31 @@ batch_size = 64
 lambda_ = 1.0
 lr = 1e-3
 criterion = nn.CrossEntropyLoss()
+
+MULTIDIM_MODEL = VectorQuantileModel.CPFLOW
+
+if MULTIDIM_MODEL == VectorQuantileModel.CPFLOW:
+    train_kwargs = {
+        "lr": 1e-3,
+        "num_epochs": 100,
+        "batch_size": 64,
+    }
+    multidim_params = {
+        "dimx": len(UNCERTAINTY_MEASURES),
+        "hidden_dim": 32,
+        "num_hidden_layers": 2,
+        "nblocks": 2,
+        "zero_softplus": True,
+        "softplus_type": "gaussian_softplus",
+        "symm_act_first": True,
+        "device": "cuda:0",
+    }
+
+else:
+    train_kwargs = None
+    multidim_params = {
+        "positive": True,
+    }
 
 
 if dataset_name == DatasetName.BLOBS:
@@ -121,9 +143,14 @@ grid_tensor, xx, yy = plot_decision_boundaries(
     ensemble, X_test, y_test, accuracies, device, n_classes, return_grid=True
 )
 
-multi_dim_uncertainty = MultiDimensionalUncertainty(UNCERTAINTY_MEASURES, positive=True)
+multi_dim_uncertainty = MultiDimensionalUncertainty(
+    UNCERTAINTY_MEASURES, multidim_model=MULTIDIM_MODEL, multidim_params=multidim_params
+)
 multi_dim_uncertainty.fit(
-    logits_train=X_calib_logits, y_train=y_calib, logits_calib=X_calib_logits
+    logits_train=X_calib_logits,
+    y_train=y_calib,
+    logits_calib=X_calib_logits,
+    train_kwargs=train_kwargs,
 )
 
 grid_points = np.stack([xx.ravel(), yy.ravel()], axis=-1)

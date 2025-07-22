@@ -298,7 +298,7 @@ class OTCPOrdering:
         self.psi_star_ = None
         self.is_fitted_ = False
 
-    def fit(self, scores_cal):
+    def fit(self, scores_cal, **kwargs):
         scores_cal = np.asarray(scores_cal)
 
         # Learn OT parameters from calibration scores

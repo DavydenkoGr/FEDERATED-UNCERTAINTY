@@ -4,7 +4,7 @@ import numpy as np
 from tqdm.auto import tqdm
 import gc
 
-sys.path.insert(0, "../../../third_party/cp-flow")
+sys.path.insert(0, "./third_party/cpflow")
 from lib.flows import SequentialFlow, DeepConvexFlow, ActNorm
 from lib.icnn import ICNN3
 
@@ -68,7 +68,7 @@ class CPFlowOrdering:
             shuffle=True,
         )
 
-        optim = torch.optim.Adam(self.flow.parameters(), lr=kwargs.get("lr", 1e-3))
+        optim = torch.optim.Adam(self.flow.parameters(), lr=lr)
         sch = torch.optim.lr_scheduler.CosineAnnealingLR(
             optim, num_epochs * len(train_loader), eta_min=0
         )

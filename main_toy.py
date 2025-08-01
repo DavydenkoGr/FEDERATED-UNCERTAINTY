@@ -26,18 +26,21 @@ UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK
 set_all_seeds(1)
 
 dataset_name = DatasetName.BLOBS
+
 n_classes = 10
 device = torch.device("cuda:0")
 n_members = 1
 input_dim = 2
-hidden_dim = 10
-n_epochs = 100
-n_epochs_vqm = 10
+hidden_dim = 32
+n_epochs = 50
 batch_size = 64
 lambda_ = 1.0
-lr = 1e-2
-lr_vqm = 1e-4
+lr = 1e-3
 criterion = nn.CrossEntropyLoss()
+
+hidden_dim_vqm = 10
+n_epochs_vqm = 10
+lr_vqm = 1e-4
 
 MULTIDIM_MODEL = VectorQuantileModel.CPFLOW
 # MULTIDIM_MODEL = VectorQuantileModel.OTCP
@@ -51,7 +54,7 @@ if MULTIDIM_MODEL == VectorQuantileModel.CPFLOW:
     }
     multidim_params = {
         "feature_dimension": len(UNCERTAINTY_MEASURES),
-        "hidden_dim": hidden_dim,
+        "hidden_dim": hidden_dim_vqm,
         "num_hidden_layers": 10,
         "nblocks": 4,
         "zero_softplus": False,

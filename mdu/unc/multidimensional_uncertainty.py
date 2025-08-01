@@ -8,6 +8,7 @@ from mdu.unc.risk_metrics.constants import RiskType
 from mdu.unc.general_metrics.mahalanobis import MahalanobisDistance
 import torch
 
+
 class UncertaintyEstimator:
     """
     General wrapper for uncertainty estimation, providing a scikit-learn-like interface
@@ -240,7 +241,11 @@ class MultiDimensionalUncertainty:
         uncertainty_matrix = np.column_stack(calibration_uncertainties)
 
         train_loader = torch.utils.data.DataLoader(
-            torch.tensor(uncertainty_matrix, dtype=torch.float32, device=train_kwargs.get("device", "cpu")),
+            torch.tensor(
+                uncertainty_matrix,
+                dtype=torch.float32,
+                device=train_kwargs.get("device", "cpu"),
+            ),
             batch_size=train_kwargs.get("batch_size", 128),
             shuffle=True,
         )
@@ -289,7 +294,9 @@ class MultiDimensionalUncertainty:
         uncertainty_matrix = np.column_stack(test_uncertainties)
 
         if isinstance(self.vqr_model, torch.nn.Module):
-            uncertainty_matrix = torch.from_numpy(uncertainty_matrix).to(torch.float32).to(device)
+            uncertainty_matrix = (
+                torch.from_numpy(uncertainty_matrix).to(torch.float32).to(device)
+            )
 
         # Step 3: Apply VQR
         grid_l2_norms, ordering_indices = self.vqr_model.predict(uncertainty_matrix)

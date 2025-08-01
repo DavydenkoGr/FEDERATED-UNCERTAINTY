@@ -6,6 +6,7 @@ from mdu.vqr.cpflow.flows import SequentialFlow, DeepConvexFlow, ActNorm
 from mdu.vqr.cpflow.icnn import ICNN3
 import numpy as np
 
+
 class CPFlowOrdering(nn.Module):
     def __init__(
         self,
@@ -44,7 +45,11 @@ class CPFlowOrdering(nn.Module):
             layers[0::2] = [ActNorm(feature_dimension) for _ in range(nblocks + 1)]
             layers[1::2] = [
                 DeepConvexFlow(
-                    icnn, feature_dimension, unbiased=False, bias_w1=-0.0, trainable_w0=False
+                    icnn,
+                    feature_dimension,
+                    unbiased=False,
+                    bias_w1=-0.0,
+                    trainable_w0=False,
                 )
                 for _, icnn in zip(range(nblocks), icnns)
             ]
@@ -113,5 +118,3 @@ class CPFlowOrdering(nn.Module):
         mk_norms, _ = self.predict(scores_test)
 
         return mk_norms
-
-

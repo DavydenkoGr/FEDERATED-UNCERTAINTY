@@ -42,8 +42,8 @@ hidden_dim_vqm = 10
 n_epochs_vqm = 10
 lr_vqm = 1e-4
 
-MULTIDIM_MODEL = VectorQuantileModel.CPFLOW
-# MULTIDIM_MODEL = VectorQuantileModel.OTCP
+# MULTIDIM_MODEL = VectorQuantileModel.CPFLOW
+MULTIDIM_MODEL = VectorQuantileModel.OTCP
 
 if MULTIDIM_MODEL == VectorQuantileModel.CPFLOW:
     train_kwargs = {

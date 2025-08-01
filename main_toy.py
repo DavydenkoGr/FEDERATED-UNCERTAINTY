@@ -37,28 +37,31 @@ lambda_ = 1.0
 lr = 1e-3
 criterion = nn.CrossEntropyLoss()
 
-MULTIDIM_MODEL = VectorQuantileModel.CPFLOW
-# MULTIDIM_MODEL = VectorQuantileModel.OTCP
+# MULTIDIM_MODEL = VectorQuantileModel.CPFLOW
+MULTIDIM_MODEL = VectorQuantileModel.OTCP
 
 if MULTIDIM_MODEL == VectorQuantileModel.CPFLOW:
     train_kwargs = {
         "lr": 1e-2,
         "num_epochs": 50,
         "batch_size": 64,
+        "device": device,
     }
     multidim_params = {
-        "dimx": len(UNCERTAINTY_MEASURES),
+        "feature_dimension": len(UNCERTAINTY_MEASURES),
         "hidden_dim": 8,
         "num_hidden_layers": 5,
         "nblocks": 12,
         "zero_softplus": False,
         "softplus_type": "softplus",
         "symm_act_first": False,
-        "device": "cpu",
     }
 
 else:
-    train_kwargs = {}
+    train_kwargs = {
+        "batch_size": 64,
+        "device": device,
+    }
     multidim_params = {
         "positive": True,
     }
@@ -147,6 +150,7 @@ grid_tensor, xx, yy = plot_decision_boundaries(
 multi_dim_uncertainty = MultiDimensionalUncertainty(
     UNCERTAINTY_MEASURES, multidim_model=MULTIDIM_MODEL, multidim_params=multidim_params
 )
+
 multi_dim_uncertainty.fit(
     logits_train=X_calib_logits,
     y_train=y_calib,

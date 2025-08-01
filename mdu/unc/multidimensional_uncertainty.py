@@ -1,12 +1,12 @@
 from typing import List, Dict, Any, Optional
 import numpy as np
-from ..vqr.otcp.functions import OTCPOrdering
-from ..vqr.cpflow.functions import CPFlowOrdering
-from .constants import UncertaintyType, VectorQuantileModel
-from .risk_metrics.create_specific_risks import get_risk_approximation
-from .risk_metrics.constants import RiskType
-from .general_metrics.mahalanobis import MahalanobisDistance
-
+from mdu.vqr.otcp.functions import OTCPOrdering
+from mdu.vqr.cpflow.core_flow import CPFlowOrdering
+from mdu.unc.constants import UncertaintyType, VectorQuantileModel
+from mdu.unc.risk_metrics.create_specific_risks import get_risk_approximation
+from mdu.unc.risk_metrics.constants import RiskType
+from mdu.unc.general_metrics.mahalanobis import MahalanobisDistance
+import torch
 
 class UncertaintyEstimator:
     """
@@ -239,8 +239,14 @@ class MultiDimensionalUncertainty:
         # Step 3: Stack uncertainties into a matrix (n_samples, n_measures)
         uncertainty_matrix = np.column_stack(calibration_uncertainties)
 
+        train_loader = torch.utils.data.DataLoader(
+            torch.tensor(uncertainty_matrix, dtype=torch.float32, device=train_kwargs.get("device", "cpu")),
+            batch_size=train_kwargs.get("batch_size", 128),
+            shuffle=True,
+        )
+
         # Step 4: Fit VQR on the combined uncertainty measures
-        self.vqr_model.fit(uncertainty_matrix, train_kwargs)
+        self.vqr_model.fit(train_loader, train_kwargs)
 
         self.is_fitted = True
         return self

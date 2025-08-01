@@ -4,8 +4,8 @@
 import torch.nn.functional as F
 import torch.nn as nn
 import torch
-from cpflow.distributions import log_standard_normal
-from cpflow.cpflows import DeepConvexFlow
+from mdu.vqr.cpflow.distributions import log_standard_normal
+from mdu.vqr.cpflow.cpflows import DeepConvexFlow
 
 
 _scaling_min = 0.001

@@ -1,31 +1,27 @@
-import sys
 import torch
-import numpy as np
+import torch.nn as nn
 from tqdm.auto import tqdm
 import gc
+from mdu.vqr.cpflow.flows import SequentialFlow, DeepConvexFlow, ActNorm
+from mdu.vqr.cpflow.icnn import ICNN3
+import numpy as np
 
-sys.path.insert(0, "./third_party/cp-flow")
-from lib.flows import SequentialFlow, DeepConvexFlow, ActNorm
-from lib.icnn import ICNN3
-
-
-class CPFlowOrdering:
+class CPFlowOrdering(nn.Module):
     def __init__(
         self,
-        dimx: int,
+        feature_dimension: int,
         hidden_dim: int,
         num_hidden_layers: int,
         nblocks: int,
         zero_softplus: bool = True,
         softplus_type: str = "gaussian_softplus",
         symm_act_first: bool = True,
-        device: str = "cuda:0",
     ):
-        self.device = device
-        self.dimx = dimx
+        super().__init__()
+        self.feature_dimension = feature_dimension
         icnns = [
             ICNN3(
-                dimx,
+                feature_dimension,
                 hidden_dim,
                 num_hidden_layers,
                 symm_act_first=symm_act_first,
@@ -38,35 +34,26 @@ class CPFlowOrdering:
             # for printing the potential only
             layers = [None] * (nblocks + 1)
             # noinspection PyTypeChecker
-            layers[0] = ActNorm(dimx)
+            layers[0] = ActNorm(feature_dimension)
             layers[1:] = [
-                DeepConvexFlow(icnn, dimx, unbiased=False, bias_w1=-0.0)
+                DeepConvexFlow(icnn, feature_dimension, unbiased=False, bias_w1=-0.0)
                 for _, icnn in zip(range(nblocks), icnns)
             ]
         else:
             layers = [None] * (2 * nblocks + 1)
-            layers[0::2] = [ActNorm(dimx) for _ in range(nblocks + 1)]
+            layers[0::2] = [ActNorm(feature_dimension) for _ in range(nblocks + 1)]
             layers[1::2] = [
                 DeepConvexFlow(
-                    icnn, dimx, unbiased=False, bias_w1=-0.0, trainable_w0=False
+                    icnn, feature_dimension, unbiased=False, bias_w1=-0.0, trainable_w0=False
                 )
                 for _, icnn in zip(range(nblocks), icnns)
             ]
         self.flow = SequentialFlow(layers)
 
-    def fit(self, scores_cal: np.ndarray, train_params: dict):
+    def fit(self, train_loader: torch.utils.data.DataLoader, train_params: dict):
         num_epochs = train_params.get("num_epochs", 100)
-        batch_size = train_params.get("batch_size", 128)
         lr = train_params.get("lr", 1e-3)
         print_every = train_params.get("print_every", 10)
-
-        self.flow = self.flow.to(self.device)
-
-        train_loader = torch.utils.data.DataLoader(
-            torch.tensor(scores_cal, dtype=torch.float32, device=self.device),
-            batch_size=batch_size,
-            shuffle=True,
-        )
 
         optim = torch.optim.AdamW(self.flow.parameters(), lr=lr)
         sch = torch.optim.lr_scheduler.CosineAnnealingLR(
@@ -79,8 +66,7 @@ class CPFlowOrdering:
         self.flow.train()
         for _ in tqdm(range(num_epochs)):
             for x in train_loader:
-                x = x.view(-1, self.dimx)
-                x = x.to(self.device)
+                x = x.view(-1, self.feature_dimension)
 
                 loss = -self.flow.logp(x).mean()
                 optim.zero_grad()
@@ -102,13 +88,13 @@ class CPFlowOrdering:
         self.is_fitted_ = True
         return self
 
-    def predict(self, scores_test: np.ndarray):
+    def predict(self, scores_test: torch.Tensor):
         with torch.no_grad():
             self.flow.eval()
             for f in self.flow.flows[1::2]:
                 f.no_bruteforce = False
             z_, _ = self.flow.forward_transform(
-                torch.tensor(scores_test, dtype=torch.float32, device=self.device),
+                scores_test,
                 context=None,
             )
             pushforward_of_u = z_.cpu()
@@ -118,7 +104,7 @@ class CPFlowOrdering:
 
         return mk_norms, ordering_indices
 
-    def predict_ranks(self, scores_test):
+    def predict_ranks(self, scores_test: torch.Tensor):
         if not self.is_fitted_:
             raise ValueError(
                 "This OTCPOrdering instance is not fitted yet. "
@@ -127,3 +113,5 @@ class CPFlowOrdering:
         mk_norms, _ = self.predict(scores_test)
 
         return mk_norms
+
+

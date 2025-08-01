@@ -1,5 +1,6 @@
 import numpy as np
 import ot
+import torch
 from sklearn.model_selection import train_test_split
 ########################################################################################################################################
 ########################################################################################################################################
@@ -298,7 +299,8 @@ class OTCPOrdering:
         self.psi_star_ = None
         self.is_fitted_ = False
 
-    def fit(self, scores_cal, **kwargs):
+    def fit(self, train_loader: torch.utils.data.DataLoader, train_params: dict):
+        scores_cal = train_loader.dataset.cpu().numpy()
         scores_cal = np.asarray(scores_cal)
 
         # Learn OT parameters from calibration scores

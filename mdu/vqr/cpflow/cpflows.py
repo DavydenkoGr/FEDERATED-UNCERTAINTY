@@ -5,7 +5,7 @@ import torch
 import torch.nn.functional as nnF
 from functools import partial
 import numpy as np
-from cpflow.logdet_estimators import (
+from mdu.vqr.cpflow.logdet_estimators import (
     stochastic_lanczos_quadrature,
     unbiased_logdet,
     stochastic_logdet_gradient_estimator,

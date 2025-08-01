@@ -276,7 +276,7 @@ class MultiDimensionalUncertainty:
             tuple: (ordering_indices, uncertainty_scores)
                 - ordering_indices: Indices that sort test data by uncertainty (ascending)
                 - uncertainty_scores: Dict mapping uncertainty measure names to their scores,
-                                    including 'ot_scores' for the OT-combined scores
+                                    including 'multidim_scores' for the OT-combined scores
         """
         if not self.is_fitted:
             raise RuntimeError(
@@ -312,7 +312,7 @@ class MultiDimensionalUncertainty:
                 uncertainty_scores[print_name] = scores
 
         # Add OT scores to the dictionary
-        uncertainty_scores["ot_scores"] = grid_l2_norms
+        uncertainty_scores["multidim_scores"] = grid_l2_norms
 
         return ordering_indices, uncertainty_scores
 

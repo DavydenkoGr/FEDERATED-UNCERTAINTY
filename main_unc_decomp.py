@@ -96,7 +96,7 @@ for r in res:
     for k in r.keys():
         if any(
             prefix in k
-            for prefix in ["aleatoric_", "epistemic_", "additive_total", "ot_scores"]
+            for prefix in ["aleatoric_", "epistemic_", "additive_total", "multidim_scores"]
         ):
             uncertainty_keys.add(k)
 uncertainty_keys = sorted(uncertainty_keys)

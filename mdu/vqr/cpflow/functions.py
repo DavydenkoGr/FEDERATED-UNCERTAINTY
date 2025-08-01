@@ -4,7 +4,7 @@ import numpy as np
 from tqdm.auto import tqdm
 import gc
 
-sys.path.insert(0, "./third_party/cpflow")
+sys.path.insert(0, "./third_party/cp-flow")
 from lib.flows import SequentialFlow, DeepConvexFlow, ActNorm
 from lib.icnn import ICNN3
 
@@ -54,11 +54,11 @@ class CPFlowOrdering:
             ]
         self.flow = SequentialFlow(layers)
 
-    def fit(self, scores_cal: np.ndarray, **kwargs):
-        num_epochs = kwargs.get("num_epochs", 100)
-        batch_size = kwargs.get("batch_size", 128)
-        lr = kwargs.get("lr", 1e-3)
-        print_every = kwargs.get("print_every", 10)
+    def fit(self, scores_cal: np.ndarray, train_params: dict):
+        num_epochs = train_params.get("num_epochs", 100)
+        batch_size = train_params.get("batch_size", 128)
+        lr = train_params.get("lr", 1e-3)
+        print_every = train_params.get("print_every", 10)
 
         self.flow = self.flow.to(self.device)
 
@@ -68,14 +68,13 @@ class CPFlowOrdering:
             shuffle=True,
         )
 
-        optim = torch.optim.Adam(self.flow.parameters(), lr=lr)
+        optim = torch.optim.AdamW(self.flow.parameters(), lr=lr)
         sch = torch.optim.lr_scheduler.CosineAnnealingLR(
             optim, num_epochs * len(train_loader), eta_min=0
         )
 
         loss_acc = 0
         t = 0
-        grad_norm = 0
 
         self.flow.train()
         for _ in tqdm(range(num_epochs)):
@@ -87,27 +86,19 @@ class CPFlowOrdering:
                 optim.zero_grad()
                 loss.backward()
 
-                grad_norm = torch.nn.utils.clip_grad.clip_grad_norm_(
-                    self.flow.parameters(), max_norm=10
-                ).item()
-
                 optim.step()
                 sch.step()
 
-                loss_acc += loss.item()  # - entropy
+                loss_acc += loss.item()
                 del loss
                 gc.collect()
                 torch.clear_autocast_cache()
 
                 t += 1
                 if t == 1:
-                    print("init loss:", loss_acc, grad_norm)
-                    # print('\t', gt, init_l2)
-
-                    print(loss_acc)
-
+                    print("init loss:", loss_acc)
                 if t % print_every == 0:
-                    print(t, loss_acc / print_every, grad_norm)
+                    print(t, loss_acc / print_every)
         self.is_fitted_ = True
         return self
 

@@ -4,6 +4,7 @@ from collections import defaultdict
 from mdu.data.constants import DatasetName
 from sklearn.metrics import roc_auc_score
 from mdu.data.data_utils import split_dataset_indices
+from mdu.unc.constants import VectorQuantileModel
 from mdu.unc.multidimensional_uncertainty import MultiDimensionalUncertainty
 import pandas as pd
 from configs.uncertainty_measures_configs import (
@@ -16,7 +17,34 @@ from configs.uncertainty_measures_configs import (
     SINGLE_MEASURE,
 )
 
-UNCERTAINTY_MEASURES = BAYES_RISK_AND_BAYES_RISK
+UNCERTAINTY_MEASURES = SINGLE_MEASURE
+
+MULTIDIM_MODEL = VectorQuantileModel.CPFLOW
+# MULTIDIM_MODEL = VectorQuantileModel.OTCP
+
+if MULTIDIM_MODEL == VectorQuantileModel.CPFLOW:
+    train_kwargs = {
+        "lr": 1e-2,
+        "num_epochs": 10,
+        "batch_size": 64,
+    }
+    multidim_params = {
+        "dimx": len(UNCERTAINTY_MEASURES),
+        "hidden_dim": 8,
+        "num_hidden_layers": 5,
+        "nblocks": 12,
+        "zero_softplus": False,
+        "softplus_type": "softplus",
+        "symm_act_first": False,
+        "device": "cuda:0",
+    }
+
+else:
+    train_kwargs = {}
+    multidim_params = {
+        "positive": True,
+    }
+
 
 ENSEMBLE_GROUPS = [
     [0, 1, 2, 3, 4],
@@ -66,12 +94,15 @@ for group in ENSEMBLE_GROUPS:
     X_ood = np.vstack(all_ood_logits)
 
     multi_dim_uncertainty = MultiDimensionalUncertainty(
-        UNCERTAINTY_MEASURES, positive=True
+        UNCERTAINTY_MEASURES,
+        multidim_model=MULTIDIM_MODEL,
+        multidim_params=multidim_params,
     )
     multi_dim_uncertainty.fit(
         logits_train=X_train_cond,
         y_train=y_train_cond,
         logits_calib=X_calib,
+        train_kwargs=train_kwargs,
     )
 
     _, uncertainty_scores_ind = multi_dim_uncertainty.predict(X_test)

@@ -240,7 +240,7 @@ class MultiDimensionalUncertainty:
         uncertainty_matrix = np.column_stack(calibration_uncertainties)
 
         # Step 4: Fit VQR on the combined uncertainty measures
-        self.vqr_model.fit(uncertainty_matrix, **train_kwargs)
+        self.vqr_model.fit(uncertainty_matrix, train_kwargs)
 
         self.is_fitted = True
         return self

@@ -246,13 +246,16 @@ class MultiDimensionalUncertainty:
         )
 
         # Step 4: Fit VQR on the combined uncertainty measures
+        if isinstance(self.vqr_model, torch.nn.Module):
+            self.vqr_model = self.vqr_model.to(train_kwargs.get("device", "cpu"))
+
         self.vqr_model.fit(train_loader, train_kwargs)
 
         self.is_fitted = True
         return self
 
     def predict(
-        self, logits_test: np.ndarray
+        self, logits_test: torch.Tensor | np.ndarray
     ) -> tuple[np.ndarray, dict[str, np.ndarray]]:
         """
         Predict uncertainty scores using the fitted ensemble.
@@ -276,10 +279,17 @@ class MultiDimensionalUncertainty:
             )
 
         # Step 1: Compute uncertainty measures for each estimator
+        if isinstance(logits_test, torch.Tensor):
+            device = logits_test.device
+            logits_test = logits_test.cpu().numpy()
+
         test_uncertainties = self._compute_all_uncertainties(logits_test)
 
         # Step 2: Stack uncertainties into a matrix (n_samples, n_measures)
         uncertainty_matrix = np.column_stack(test_uncertainties)
+
+        if isinstance(self.vqr_model, torch.nn.Module):
+            uncertainty_matrix = torch.from_numpy(uncertainty_matrix).to(torch.float32).to(device)
 
         # Step 3: Apply VQR
         grid_l2_norms, ordering_indices = self.vqr_model.predict(uncertainty_matrix)

@@ -30,28 +30,30 @@ n_classes = 10
 device = torch.device("cuda:0")
 n_members = 1
 input_dim = 2
-hidden_dim = 32
-n_epochs = 50
+hidden_dim = 10
+n_epochs = 100
+n_epochs_vqm = 10
 batch_size = 64
 lambda_ = 1.0
-lr = 1e-3
+lr = 1e-2
+lr_vqm = 1e-4
 criterion = nn.CrossEntropyLoss()
 
-# MULTIDIM_MODEL = VectorQuantileModel.CPFLOW
-MULTIDIM_MODEL = VectorQuantileModel.OTCP
+MULTIDIM_MODEL = VectorQuantileModel.CPFLOW
+# MULTIDIM_MODEL = VectorQuantileModel.OTCP
 
 if MULTIDIM_MODEL == VectorQuantileModel.CPFLOW:
     train_kwargs = {
-        "lr": 1e-2,
-        "num_epochs": 50,
-        "batch_size": 64,
+        "lr": lr_vqm,
+        "num_epochs": n_epochs_vqm,
+        "batch_size": batch_size,
         "device": device,
     }
     multidim_params = {
         "feature_dimension": len(UNCERTAINTY_MEASURES),
-        "hidden_dim": 8,
-        "num_hidden_layers": 5,
-        "nblocks": 12,
+        "hidden_dim": hidden_dim,
+        "num_hidden_layers": 10,
+        "nblocks": 4,
         "zero_softplus": False,
         "softplus_type": "softplus",
         "symm_act_first": False,
@@ -59,7 +61,7 @@ if MULTIDIM_MODEL == VectorQuantileModel.CPFLOW:
 
 else:
     train_kwargs = {
-        "batch_size": 64,
+        "batch_size": batch_size,
         "device": device,
     }
     multidim_params = {
@@ -167,6 +169,9 @@ X_grid_logits = get_ensemble_predictions(
 )
 
 print(X_grid_logits.shape)
+if MULTIDIM_MODEL == VectorQuantileModel.CPFLOW:
+    X_grid_logits = torch.from_numpy(X_grid_logits).to(torch.float32).to(device)
+
 ordering_indices, uncertainty_scores = multi_dim_uncertainty.predict(X_grid_logits)
 
 plot_uncertainty_measures(

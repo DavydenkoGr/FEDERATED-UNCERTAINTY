@@ -1,9 +1,11 @@
 from mdu.eval.eval_utils import load_pickle
 import numpy as np
+import torch
 from collections import defaultdict
 from mdu.data.constants import DatasetName
 from sklearn.metrics import roc_auc_score
 from mdu.data.data_utils import split_dataset_indices
+from mdu.unc.constants import VectorQuantileModel
 from mdu.unc.multidimensional_uncertainty import MultiDimensionalUncertainty
 import pandas as pd
 from configs.uncertainty_measures_configs import (
@@ -12,10 +14,43 @@ from configs.uncertainty_measures_configs import (
     EXCESSES_DIFFERENT_APPROXIMATIONS,
     BAYES_DIFFERENT_APPROXIMATIONS,
     BAYES_DIFFERENT_INSTANTIATIONS,
-    BAYES_RISK_AND_BAYES_RISK
+    BAYES_RISK_AND_BAYES_RISK,
+    SINGLE_MEASURE,
 )
 
-UNCERTAINTY_MEASURES = BAYES_RISK_AND_BAYES_RISK
+UNCERTAINTY_MEASURES = BAYES_RISK_AND_BAYES_RISK #+ BAYES_RISK_AND_BAYES_RISK + EXCESSES_DIFFERENT_INSTANTIATIONS
+
+# MULTIDIM_MODEL = VectorQuantileModel.CPFLOW
+MULTIDIM_MODEL = VectorQuantileModel.OTCP
+
+device = torch.device("cuda:0")
+
+if MULTIDIM_MODEL == VectorQuantileModel.CPFLOW:
+    train_kwargs = {
+        "lr": 1e-4,
+        "num_epochs": 10,
+        "batch_size": 64,
+        "device": device,
+    }
+    multidim_params = {
+        "feature_dimension": len(UNCERTAINTY_MEASURES),
+        "hidden_dim": 8,
+        "num_hidden_layers": 5,
+        "nblocks": 4,
+        "zero_softplus": False,
+        "softplus_type": "softplus",
+        "symm_act_first": False,
+    }
+
+else:
+    train_kwargs = {
+        "batch_size": 64,
+        "device": device,
+    }
+    multidim_params = {
+        "positive": True,
+    }
+
 
 ENSEMBLE_GROUPS = [
     [0, 1, 2, 3, 4],
@@ -65,13 +100,19 @@ for group in ENSEMBLE_GROUPS:
     X_ood = np.vstack(all_ood_logits)
 
     multi_dim_uncertainty = MultiDimensionalUncertainty(
-        UNCERTAINTY_MEASURES, positive=True
+        UNCERTAINTY_MEASURES,
+        multidim_model=MULTIDIM_MODEL,
+        multidim_params=multidim_params,
     )
     multi_dim_uncertainty.fit(
         logits_train=X_train_cond,
         y_train=y_train_cond,
         logits_calib=X_calib,
+        train_kwargs=train_kwargs,
     )
+    if MULTIDIM_MODEL == VectorQuantileModel.CPFLOW:
+        X_test = torch.from_numpy(X_test).to(torch.float32).to(train_kwargs["device"])
+        X_ood = torch.from_numpy(X_ood).to(torch.float32).to(train_kwargs["device"])
 
     _, uncertainty_scores_ind = multi_dim_uncertainty.predict(X_test)
     _, uncertainty_scores_ood = multi_dim_uncertainty.predict(X_ood)

@@ -6,19 +6,27 @@ from mdu.nn.constants import ModelName
 from mdu.optim.train import train_ensembles
 import torch.nn as nn
 from mdu.vis.toy_plots import plot_decision_boundaries, plot_uncertainty_measures
-from mdu.unc.constants import UncertaintyType
-from mdu.unc.risk_metrics.constants import GName, RiskType, ApproximationType
+from mdu.unc.constants import VectorQuantileModel
 from mdu.unc.multidimensional_uncertainty import MultiDimensionalUncertainty
 from mdu.eval.eval_utils import get_ensemble_predictions
 from mdu.data.load_dataset import get_dataset
 from mdu.data.data_utils import split_dataset
 from mdu.data.constants import DatasetName
+from configs.uncertainty_measures_configs import (
+    MAHALANOBIS_AND_BAYES_RISK,
+    EXCESSES_DIFFERENT_INSTANTIATIONS,
+    EXCESSES_DIFFERENT_APPROXIMATIONS,
+    BAYES_DIFFERENT_APPROXIMATIONS,
+    BAYES_DIFFERENT_INSTANTIATIONS,
+    BAYES_RISK_AND_BAYES_RISK,
+)
+
+UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK
 
 set_all_seeds(1)
 
-from sklearn.model_selection import train_test_split
-
 dataset_name = DatasetName.BLOBS
+
 n_classes = 10
 device = torch.device("cuda:0")
 n_members = 1
@@ -30,23 +38,39 @@ lambda_ = 1.0
 lr = 1e-3
 criterion = nn.CrossEntropyLoss()
 
-UNCERTAINTY_MEASURES = [
-    {
-        "type": UncertaintyType.RISK,
-        "print_name": "Predictive entropy",
-        "kwargs": {
-            "g_name": GName.LOG_SCORE,
-            "risk_type": RiskType.BAYES_RISK,
-            "gt_approx": ApproximationType.OUTER,
-            "T": 1.0,
-        },
-    },
-    {
-        "type": UncertaintyType.MAHALANOBIS,
-        "print_name": "Mahalanobis score",
-        "kwargs": {},
-    },
-]
+hidden_dim_vqm = 10
+n_epochs_vqm = 10
+lr_vqm = 1e-4
+
+# MULTIDIM_MODEL = VectorQuantileModel.CPFLOW
+MULTIDIM_MODEL = VectorQuantileModel.OTCP
+
+if MULTIDIM_MODEL == VectorQuantileModel.CPFLOW:
+    train_kwargs = {
+        "lr": lr_vqm,
+        "num_epochs": n_epochs_vqm,
+        "batch_size": batch_size,
+        "device": device,
+    }
+    multidim_params = {
+        "feature_dimension": len(UNCERTAINTY_MEASURES),
+        "hidden_dim": hidden_dim_vqm,
+        "num_hidden_layers": 10,
+        "nblocks": 4,
+        "zero_softplus": False,
+        "softplus_type": "softplus",
+        "symm_act_first": False,
+    }
+
+else:
+    train_kwargs = {
+        "batch_size": batch_size,
+        "device": device,
+    }
+    multidim_params = {
+        "positive": True,
+    }
+
 
 if dataset_name == DatasetName.BLOBS:
     # Generate n_classes centers uniformly on a circle
@@ -128,9 +152,15 @@ grid_tensor, xx, yy = plot_decision_boundaries(
     ensemble, X_test, y_test, accuracies, device, n_classes, return_grid=True
 )
 
-multi_dim_uncertainty = MultiDimensionalUncertainty(UNCERTAINTY_MEASURES, positive=True)
+multi_dim_uncertainty = MultiDimensionalUncertainty(
+    UNCERTAINTY_MEASURES, multidim_model=MULTIDIM_MODEL, multidim_params=multidim_params
+)
+
 multi_dim_uncertainty.fit(
-    logits_train=X_calib_logits, y_train=y_calib, logits_calib=X_calib_logits
+    logits_train=X_calib_logits,
+    y_train=y_calib,
+    logits_calib=X_calib_logits,
+    train_kwargs=train_kwargs,
 )
 
 grid_points = np.stack([xx.ravel(), yy.ravel()], axis=-1)
@@ -140,6 +170,10 @@ X_grid_logits = get_ensemble_predictions(
     torch.from_numpy(grid_points).to(torch.float32).to(device),
     return_logits=True,
 )
+
+print(X_grid_logits.shape)
+if MULTIDIM_MODEL == VectorQuantileModel.CPFLOW:
+    X_grid_logits = torch.from_numpy(X_grid_logits).to(torch.float32).to(device)
 
 ordering_indices, uncertainty_scores = multi_dim_uncertainty.predict(X_grid_logits)
 

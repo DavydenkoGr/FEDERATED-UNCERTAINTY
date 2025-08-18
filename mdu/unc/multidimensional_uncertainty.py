@@ -1,10 +1,12 @@
 from typing import List, Dict, Any, Optional
 import numpy as np
-from ..otcp.functions import OTCPOrdering
-from .constants import UncertaintyType
-from .risk_metrics.create_specific_risks import get_risk_approximation
-from .risk_metrics.constants import RiskType
-from .general_metrics.mahalanobis import MahalanobisDistance
+from mdu.vqr.otcp.functions import OTCPOrdering
+from mdu.vqr.cpflow.core_flow import CPFlowOrdering
+from mdu.unc.constants import UncertaintyType, VectorQuantileModel
+from mdu.unc.risk_metrics.create_specific_risks import get_risk_approximation
+from mdu.unc.risk_metrics.constants import RiskType
+from mdu.unc.general_metrics.mahalanobis import MahalanobisDistance
+import torch
 
 
 class UncertaintyEstimator:
@@ -158,7 +160,10 @@ class MultiDimensionalUncertainty:
     """
 
     def __init__(
-        self, uncertainty_configs: List[Dict[str, Any]], positive: bool = True
+        self,
+        uncertainty_configs: List[Dict[str, Any]],
+        multidim_model: VectorQuantileModel,
+        multidim_params: Dict[str, Any],
     ):
         """
         Initialize the ensemble with a list of uncertainty measure configurations.
@@ -166,7 +171,6 @@ class MultiDimensionalUncertainty:
         Args:
             uncertainty_configs: List of dictionaries, each containing configuration
                                for one UncertaintyEstimator (type and kwargs)
-            positive: Whether to use positive reference distribution for Optimal Transport
 
         Example:
             configs = [
@@ -176,7 +180,6 @@ class MultiDimensionalUncertainty:
             ensemble = UncertaintyEnsemble(configs)
         """
         self.uncertainty_configs = uncertainty_configs
-        self.positive = positive
 
         # Initialize individual uncertainty estimators
         self.uncertainty_estimators = []
@@ -189,7 +192,12 @@ class MultiDimensionalUncertainty:
             self.uncertainty_estimators.append(estimator)
 
         # Optimal Transport scorer for combining uncertainty measures
-        self.ot_scorer = OTCPOrdering(positive=positive)
+        if multidim_model == VectorQuantileModel.OTCP:
+            self.vqr_model = OTCPOrdering(**multidim_params)
+        elif multidim_model == VectorQuantileModel.CPFLOW:
+            self.vqr_model = CPFlowOrdering(**multidim_params)
+        else:
+            raise ValueError(f"Unknown vector quantile model: {multidim_model}")
 
         # Track fitting state
         self.is_fitted = False
@@ -201,7 +209,11 @@ class MultiDimensionalUncertainty:
         ]
 
     def fit(
-        self, logits_train: np.ndarray, y_train: np.ndarray, logits_calib: np.ndarray
+        self,
+        logits_train: np.ndarray,
+        y_train: np.ndarray,
+        logits_calib: np.ndarray,
+        train_kwargs: Optional[Dict[str, Any]] = None,
     ):
         """
         Fit the uncertainty ensemble.
@@ -228,14 +240,27 @@ class MultiDimensionalUncertainty:
         # Step 3: Stack uncertainties into a matrix (n_samples, n_measures)
         uncertainty_matrix = np.column_stack(calibration_uncertainties)
 
-        # Step 4: Fit Optimal Transport on the combined uncertainty measures
-        self.ot_scorer.fit(uncertainty_matrix)
+        train_loader = torch.utils.data.DataLoader(
+            torch.tensor(
+                uncertainty_matrix,
+                dtype=torch.float32,
+                device=train_kwargs.get("device", "cpu"),
+            ),
+            batch_size=train_kwargs.get("batch_size", 128),
+            shuffle=True,
+        )
+
+        # Step 4: Fit VQR on the combined uncertainty measures
+        if isinstance(self.vqr_model, torch.nn.Module):
+            self.vqr_model = self.vqr_model.to(train_kwargs.get("device", "cpu"))
+
+        self.vqr_model.fit(train_loader, train_kwargs)
 
         self.is_fitted = True
         return self
 
     def predict(
-        self, logits_test: np.ndarray
+        self, logits_test: torch.Tensor | np.ndarray
     ) -> tuple[np.ndarray, dict[str, np.ndarray]]:
         """
         Predict uncertainty scores using the fitted ensemble.
@@ -251,7 +276,7 @@ class MultiDimensionalUncertainty:
             tuple: (ordering_indices, uncertainty_scores)
                 - ordering_indices: Indices that sort test data by uncertainty (ascending)
                 - uncertainty_scores: Dict mapping uncertainty measure names to their scores,
-                                    including 'ot_scores' for the OT-combined scores
+                                    including 'multidim_scores' for the OT-combined scores
         """
         if not self.is_fitted:
             raise RuntimeError(
@@ -259,13 +284,22 @@ class MultiDimensionalUncertainty:
             )
 
         # Step 1: Compute uncertainty measures for each estimator
+        if isinstance(logits_test, torch.Tensor):
+            device = logits_test.device
+            logits_test = logits_test.cpu().numpy()
+
         test_uncertainties = self._compute_all_uncertainties(logits_test)
 
         # Step 2: Stack uncertainties into a matrix (n_samples, n_measures)
         uncertainty_matrix = np.column_stack(test_uncertainties)
 
-        # Step 3: Apply Optimal Transport mapping
-        grid_l2_norms, ordering_indices = self.ot_scorer.predict(uncertainty_matrix)
+        if isinstance(self.vqr_model, torch.nn.Module):
+            uncertainty_matrix = (
+                torch.from_numpy(uncertainty_matrix).to(torch.float32).to(device)
+            )
+
+        # Step 3: Apply VQR
+        grid_l2_norms, ordering_indices = self.vqr_model.predict(uncertainty_matrix)
 
         # Step 4: Create dictionary mapping uncertainty measure names to their scores
         uncertainty_scores = {}
@@ -278,7 +312,7 @@ class MultiDimensionalUncertainty:
                 uncertainty_scores[print_name] = scores
 
         # Add OT scores to the dictionary
-        uncertainty_scores["ot_scores"] = grid_l2_norms
+        uncertainty_scores["multidim_scores"] = grid_l2_norms
 
         return ordering_indices, uncertainty_scores
 

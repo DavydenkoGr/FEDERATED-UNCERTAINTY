@@ -142,8 +142,8 @@ def eval_unc_decomp(
             # Add uncertainty results
 
             for key, values in uncertainty_results.items():
-                if key == "ot_scores":
-                    result["ot_scores"] = float(values)
+                if key == "multidim_scores":
+                    result["multidim_scores"] = float(values)
                     continue
                 if "BAYES" in key:
                     result["aleatoric_" + key] = float(values)
@@ -151,7 +151,7 @@ def eval_unc_decomp(
                     result["epistemic_" + key] = float(values)
 
             result["additive_total"] = sum(
-                [v for k, v in result.items() if k != "ot_scores"]
+                [v for k, v in result.items() if k != "multidim_scores"]
             )
             result.update(
                 {

@@ -2,6 +2,8 @@ import numpy as np
 import ot
 import torch
 from sklearn.model_selection import train_test_split
+from mdu.vqr.prototype import BaseMultidimensionalOrdering
+
 ########################################################################################################################################
 ########################################################################################################################################
 ## CODES TO SOLVE OPTIMAL TRANSPORT / LEARN MK QUANTILES AND RANKS :
@@ -291,7 +293,7 @@ def get_OTCP_ordering(scores_cal, scores_test, positive=True):
     return mk_ranks, mk_norms, ordering_indices
 
 
-class OTCPOrdering:
+class OTCPOrdering(BaseMultidimensionalOrdering):
     def __init__(self, positive=True):
         self.positive = positive
         self.mu_ = None

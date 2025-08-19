@@ -9,3 +9,4 @@ class UncertaintyType(Enum):
 class VectorQuantileModel(Enum):
     OTCP = "OTCP"
     CPFLOW = "CPFlow"
+    ENTROPIC_OT = "EntropicOT"

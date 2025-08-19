@@ -2,6 +2,7 @@ from typing import List, Dict, Any, Optional, Sequence
 import numpy as np
 from mdu.vqr.otcp.functions import OTCPOrdering
 from mdu.vqr.cpflow.core_flow import CPFlowOrdering
+from mdu.vqr.entropic_ot.entropic_ot import EntropicOTOrdering
 from mdu.unc.constants import UncertaintyType, VectorQuantileModel
 from mdu.unc.risk_metrics.create_specific_risks import get_risk_approximation
 from mdu.unc.risk_metrics.constants import RiskType
@@ -196,6 +197,8 @@ class MultiDimensionalUncertainty:
             self.vqr_model = OTCPOrdering(**multidim_params)
         elif multidim_model == VectorQuantileModel.CPFLOW:
             self.vqr_model = CPFlowOrdering(**multidim_params)
+        elif multidim_model == VectorQuantileModel.ENTROPIC_OT:
+            self.vqr_model = EntropicOTOrdering(**multidim_params)
         else:
             raise ValueError(f"Unknown vector quantile model: {multidim_model}")
 
@@ -337,6 +340,7 @@ class MultiDimensionalUncertainty:
         """
 
         return compute_all_uncertainties(self.uncertainty_estimators, logits)
+
 
 def compute_all_uncertainties(
     estimators: Sequence, logits: np.ndarray

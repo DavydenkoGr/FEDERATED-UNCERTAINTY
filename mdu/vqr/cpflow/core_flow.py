@@ -5,9 +5,10 @@ import gc
 from mdu.vqr.cpflow.flows import SequentialFlow, DeepConvexFlow, ActNorm
 from mdu.vqr.cpflow.icnn import ICNN3
 import numpy as np
+from mdu.vqr.prototype import BaseMultidimensionalOrdering
 
 
-class CPFlowOrdering(nn.Module):
+class CPFlowOrdering(nn.Module, BaseMultidimensionalOrdering):
     def __init__(
         self,
         feature_dimension: int,

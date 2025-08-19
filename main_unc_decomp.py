@@ -9,6 +9,7 @@ from mdu.data.constants import DatasetName
 from mdu.eval.toy_exp import eval_unc_decomp
 import pandas as pd
 from mdu.vis.toy_plots import plot_data_and_test_point
+from mdu.unc.constants import VectorQuantileModel
 
 set_all_seeds(42)
 
@@ -74,7 +75,54 @@ X = X + 3.0
 mean_point = np.mean(X, axis=0)
 
 
+hidden_dim_vqm = 10
+n_epochs_vqm = 10
+lr_vqm = 1e-4
+
+MULTIDIM_MODEL = VectorQuantileModel.ENTROPIC_OT
+
+if MULTIDIM_MODEL == VectorQuantileModel.CPFLOW:
+    train_kwargs = {
+        "lr": lr_vqm,
+        "num_epochs": n_epochs_vqm,
+        "batch_size": batch_size,
+        "device": device,
+    }
+    multidim_params = {
+        "feature_dimension": len(UNCERTAINTY_MEASURES),
+        "hidden_dim": hidden_dim_vqm,
+        "num_hidden_layers": 10,
+        "nblocks": 4,
+        "zero_softplus": False,
+        "softplus_type": "softplus",
+        "symm_act_first": False,
+    }
+
+elif MULTIDIM_MODEL == VectorQuantileModel.OTCP:
+    train_kwargs = {
+        "batch_size": batch_size,
+        "device": device,
+    }
+    multidim_params = {
+        "positive": True,
+    }
+elif MULTIDIM_MODEL == VectorQuantileModel.ENTROPIC_OT:
+    train_kwargs = {
+        "batch_size": batch_size,
+        "device": device,
+    }
+    multidim_params = {
+        "target": "beta",
+        "eps": 0.15,
+    }
+else:
+    raise ValueError(f"Invalid multidim model: {MULTIDIM_MODEL}")
+
+
 res = eval_unc_decomp(
+    MULTIDIM_MODEL,
+    train_kwargs,
+    multidim_params,
     X=X,
     y=y,
     test_point=mean_point,
@@ -96,7 +144,12 @@ for r in res:
     for k in r.keys():
         if any(
             prefix in k
-            for prefix in ["aleatoric_", "epistemic_", "additive_total", "multidim_scores"]
+            for prefix in [
+                "aleatoric_",
+                "epistemic_",
+                "additive_total",
+                "multidim_scores",
+            ]
         ):
             uncertainty_keys.add(k)
 uncertainty_keys = sorted(uncertainty_keys)

@@ -18,10 +18,11 @@ from configs.uncertainty_measures_configs import (
     SINGLE_MEASURE,
 )
 
-UNCERTAINTY_MEASURES = BAYES_RISK_AND_BAYES_RISK #+ BAYES_RISK_AND_BAYES_RISK + EXCESSES_DIFFERENT_INSTANTIATIONS
+UNCERTAINTY_MEASURES = EXCESSES_DIFFERENT_INSTANTIATIONS  # + BAYES_RISK_AND_BAYES_RISK + EXCESSES_DIFFERENT_INSTANTIATIONS
 
 # MULTIDIM_MODEL = VectorQuantileModel.CPFLOW
-MULTIDIM_MODEL = VectorQuantileModel.OTCP
+# MULTIDIM_MODEL = VectorQuantileModel.OTCP
+MULTIDIM_MODEL = VectorQuantileModel.ENTROPIC_OT
 
 device = torch.device("cuda:0")
 
@@ -42,7 +43,7 @@ if MULTIDIM_MODEL == VectorQuantileModel.CPFLOW:
         "symm_act_first": False,
     }
 
-else:
+elif MULTIDIM_MODEL == VectorQuantileModel.OTCP:
     train_kwargs = {
         "batch_size": 64,
         "device": device,
@@ -50,6 +51,17 @@ else:
     multidim_params = {
         "positive": True,
     }
+elif MULTIDIM_MODEL == VectorQuantileModel.ENTROPIC_OT:
+    train_kwargs = {
+        "batch_size": 64,
+        "device": device,
+    }
+    multidim_params = {
+        "target": "beta",
+        "eps": 0.15,
+    }
+else:
+    raise ValueError(f"Invalid multidim model: {MULTIDIM_MODEL}")
 
 
 ENSEMBLE_GROUPS = [
@@ -60,7 +72,7 @@ ENSEMBLE_GROUPS = [
 ]
 
 ind_dataset = DatasetName.CIFAR10.value
-ood_dataset = DatasetName.TINY_IMAGENET.value
+ood_dataset = DatasetName.CIFAR10C_1.value
 
 results = defaultdict(list)
 

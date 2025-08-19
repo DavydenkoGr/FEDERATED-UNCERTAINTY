@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Sequence
 import numpy as np
 from mdu.vqr.otcp.functions import OTCPOrdering
 from mdu.vqr.cpflow.core_flow import CPFlowOrdering
@@ -336,9 +336,10 @@ class MultiDimensionalUncertainty:
             List of uncertainty scores from each estimator
         """
 
-        uncertainties = []
-        for estimator in self.uncertainty_estimators:
-            uncertainty_scores = estimator.predict(logits)
-            uncertainties.append(uncertainty_scores)
+        return compute_all_uncertainties(self.uncertainty_estimators, logits)
 
-        return uncertainties
+def compute_all_uncertainties(
+    estimators: Sequence, logits: np.ndarray
+) -> list[np.ndarray]:
+    """Return [est.predict(logits) for each estimator]."""
+    return [est.predict(logits) for est in estimators]

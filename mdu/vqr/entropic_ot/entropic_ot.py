@@ -147,7 +147,8 @@ class EntropicOTOrdering(BaseMultidimensionalOrdering):
         W /= W.sum(axis=1, keepdims=True)
 
         Uhat = W @ self.Y_  # barycentric image
-        rank = self._scalar_rank_from_target(self.target, Uhat, self.params)
+        # rank = self._scalar_rank_from_target(self.target, Uhat, self.params)
+        rank = np.linalg.norm(Uhat, axis=1, ord=2)
 
         return rank, C_new
 
@@ -319,7 +320,8 @@ class EntropicOTOrdering(BaseMultidimensionalOrdering):
                 lam = np.full(Uhat.shape[1], lam.item())
             lam = lam[None, :]  # (1, d)
             F = 1.0 - np.exp(-np.clip(Uhat, 0.0, None) * lam)
-            return np.prod(F, axis=1)
+            # return np.prod(F, axis=1)
+            return np.linalg.norm(F, axis=1, ord=2)
 
         elif target == "beta":
             # product of marginal Beta CDFs: Π_j I_{y_j}(α_j, β_j)
@@ -337,7 +339,8 @@ class EntropicOTOrdering(BaseMultidimensionalOrdering):
             Y = np.clip(Uhat, 0.0, 1.0)
             for j in range(Uhat.shape[1]):
                 F[:, j] = _betainc(alpha[j], beta[j], Y[:, j])
-            return np.prod(F, axis=1)
+            # return np.prod(F, axis=1)
+            return np.linalg.norm(F, axis=1, ord=2)
 
         else:
             raise ValueError(f"Unknown target '{target}'.")

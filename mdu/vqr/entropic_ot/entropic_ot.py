@@ -56,6 +56,7 @@ class EntropicOTOrdering(BaseMultidimensionalOrdering):
         self,
         target: str = "ball",
         target_params: Optional[Dict[str, Any]] = None,
+        fit_mse_params: bool = False,
         eps: float = 0.25,
         n_targets: Optional[int] = None,
         standardize: bool = True,
@@ -65,6 +66,7 @@ class EntropicOTOrdering(BaseMultidimensionalOrdering):
     ):
         self.target = target
         self.params = target_params or {}
+        self.fit_mse_params = fit_mse_params
         self.eps = float(eps)
         self.n_targets = n_targets
         self.standardize = bool(standardize)
@@ -78,8 +80,6 @@ class EntropicOTOrdering(BaseMultidimensionalOrdering):
         self.dim_: Optional[int] = None
         self.Y_: Optional[np.ndarray] = None
         self.g_: Optional[np.ndarray] = None
-
-    # -------------------- public API --------------------
 
     def fit(
         self, train_loader: torch.utils.data.DataLoader, train_params: dict
@@ -99,6 +99,9 @@ class EntropicOTOrdering(BaseMultidimensionalOrdering):
             self.mean_ = np.zeros(d)
             self.scale_ = np.ones(d)
             Xz = X
+
+        if self.fit_mse_params:
+            self.params = self._fit_target_params(Xz, self.target)
 
         # sample target cloud
         m = int(self.n_targets) if self.n_targets is not None else n
@@ -196,7 +199,59 @@ class EntropicOTOrdering(BaseMultidimensionalOrdering):
                 break
         return f, g
 
-    # ---- target sampling ----
+    def _fit_target_params(self, data: np.ndarray, target: str) -> Dict[str, Any]:
+        target = target.lower()
+        n_samples, n_features = data.shape
+        
+        if target == "ball":
+            return {}
+            
+        elif target == "exp":
+            rates = np.zeros(n_features)
+            for j in range(n_features):
+                mean_j = np.mean(data[:, j])
+                rates[j] = 1.0 / max(mean_j, 1e-12)  # Avoid division by zero
+            return {"rates": rates}
+            
+        elif target == "beta":
+            # Fit beta distribution parameters coordinate-wise using method of moments
+            alpha = np.zeros(n_features)
+            beta = np.zeros(n_features)
+            
+            for j in range(n_features):
+                # Check if data is in [0, 1] range for beta distribution
+                if np.any(data[:, j] < 0) or np.any(data[:, j] > 1):
+                    raise ValueError(
+                        f"Beta distribution requires data in [0, 1] range, "
+                        f"but column {j} has values in [{np.min(data[:, j]):.6f}, {np.max(data[:, j]):.6f}]"
+                    )
+                col_data = np.clip(data[:, j], 1e-12, 1 - 1e-12)
+                
+                # Method of moments estimators
+                sample_mean = np.mean(col_data)
+                sample_var = np.var(col_data)
+                
+                # Avoid numerical issues
+                sample_mean = np.clip(sample_mean, 1e-6, 1 - 1e-6)
+                sample_var = min(sample_var, sample_mean * (1 - sample_mean) * 0.99)
+                
+                # Method of moments formulas
+                nu = sample_mean * (1 - sample_mean) / sample_var - 1
+                alpha[j] = sample_mean * nu
+                beta[j] = (1 - sample_mean) * nu
+                
+                # Ensure positive parameters
+                alpha[j] = max(alpha[j], 0.1)
+                beta[j] = max(beta[j], 0.1)
+                
+            return {"alpha": alpha, "beta": beta}
+            
+        else:
+            raise ValueError(
+                f"Unknown target '{target}' (use 'ball', 'exp', or 'beta')."
+            )
+
+
 
     def _sample_target(
         self, target: str, m: int, d: int, params: Dict[str, Any]

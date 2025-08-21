@@ -18,7 +18,7 @@ from configs.uncertainty_measures_configs import (
     SINGLE_MEASURE,
 )
 
-UNCERTAINTY_MEASURES = EXCESSES_DIFFERENT_INSTANTIATIONS  # + BAYES_RISK_AND_BAYES_RISK + EXCESSES_DIFFERENT_INSTANTIATIONS
+UNCERTAINTY_MEASURES = EXCESSES_DIFFERENT_APPROXIMATIONS  # + BAYES_RISK_AND_BAYES_RISK + EXCESSES_DIFFERENT_INSTANTIATIONS
 
 # MULTIDIM_MODEL = VectorQuantileModel.CPFLOW
 # MULTIDIM_MODEL = VectorQuantileModel.OTCP
@@ -57,7 +57,9 @@ elif MULTIDIM_MODEL == VectorQuantileModel.ENTROPIC_OT:
         "device": device,
     }
     multidim_params = {
-        "target": "beta",
+        "target": "exp",
+        "standardize": True,
+        "fit_mse_params": True,
         "eps": 0.15,
     }
 else:
@@ -72,7 +74,7 @@ ENSEMBLE_GROUPS = [
 ]
 
 ind_dataset = DatasetName.CIFAR10.value
-ood_dataset = DatasetName.CIFAR10C_1.value
+ood_dataset = DatasetName.TINY_IMAGENET.value
 
 results = defaultdict(list)
 

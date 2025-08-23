@@ -7,6 +7,7 @@ from mdu.unc.constants import UncertaintyType, VectorQuantileModel
 from mdu.unc.risk_metrics.create_specific_risks import get_risk_approximation
 from mdu.unc.risk_metrics.constants import RiskType
 from mdu.unc.general_metrics.mahalanobis import MahalanobisDistance
+from mdu.unc.general_metrics.gmm import GMM
 import torch
 
 
@@ -89,6 +90,13 @@ class UncertaintyEstimator:
                 )
             self.model = MahalanobisDistance().fit(X=train_logits, y=y_train)
             self.is_fitted = True
+        elif self.uncertainty_type == UncertaintyType.GMM:
+            if train_logits is None:
+                raise ValueError(
+                    "train_logits must be provided for GMM uncertainty."
+                )
+            self.model = GMM().fit(X=train_logits, y=y_train)
+            self.is_fitted = True
         elif self.uncertainty_type == UncertaintyType.RISK:
             # Risk-based uncertainty does not require fitting
             self.is_fitted = True
@@ -114,7 +122,7 @@ class UncertaintyEstimator:
                 "UncertaintyEstimator must be fitted before calling predict."
             )
 
-        if self.uncertainty_type == UncertaintyType.MAHALANOBIS:
+        if self.uncertainty_type == UncertaintyType.MAHALANOBIS or self.uncertainty_type == UncertaintyType.GMM:
             if self.model is None:
                 raise RuntimeError("Mahalanobis model is not fitted.")
             return self.model.predict(logits)

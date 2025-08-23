@@ -87,6 +87,24 @@ MAHALANOBIS_AND_BAYES_RISK = [
     },
 ]
 
+GMM_AND_BAYES_RISK = [
+    {
+        "type": UncertaintyType.RISK,
+        "print_name": "Predictive entropy",
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.BAYES_RISK,
+            "gt_approx": ApproximationType.OUTER,
+            "T": 1.0,
+        },
+    },
+    {
+        "type": UncertaintyType.GMM,
+        "print_name": "GMM score",
+        "kwargs": {},
+    },
+]
+
 EXCESSES_DIFFERENT_INSTANTIATIONS = [
     {
         "type": UncertaintyType.RISK,

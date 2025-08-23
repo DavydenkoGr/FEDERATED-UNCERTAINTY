@@ -7,6 +7,8 @@ from mdu.unc.risk_metrics.constants import GName, RiskType, ApproximationType
 from sklearn.metrics import roc_auc_score
 from mdu.data.data_utils import split_dataset_indices
 from mdu.unc.multidimensional_uncertainty import MultiDimensionalUncertainty
+from mdu.unc.constants import VectorQuantileModel
+import torch
 import pandas as pd
 from configs.uncertainty_measures_configs import (
     MAHALANOBIS_AND_BAYES_RISK,
@@ -17,6 +19,50 @@ from configs.uncertainty_measures_configs import (
 )
 
 UNCERTAINTY_MEASURES = BAYES_DIFFERENT_INSTANTIATIONS
+
+MULTIDIM_MODEL = VectorQuantileModel.ENTROPIC_OT
+
+device = torch.device("cuda:0")
+
+if MULTIDIM_MODEL == VectorQuantileModel.CPFLOW:
+    train_kwargs = {
+        "lr": 1e-4,
+        "num_epochs": 10,
+        "batch_size": 64,
+        "device": device,
+    }
+    multidim_params = {
+        "feature_dimension": len(UNCERTAINTY_MEASURES),
+        "hidden_dim": 8,
+        "num_hidden_layers": 5,
+        "nblocks": 4,
+        "zero_softplus": False,
+        "softplus_type": "softplus",
+        "symm_act_first": False,
+    }
+
+elif MULTIDIM_MODEL == VectorQuantileModel.OTCP:
+    train_kwargs = {
+        "batch_size": 64,
+        "device": device,
+    }
+    multidim_params = {
+        "positive": True,
+    }
+elif MULTIDIM_MODEL == VectorQuantileModel.ENTROPIC_OT:
+    train_kwargs = {
+        "batch_size": 64,
+        "device": device,
+    }
+    multidim_params = {
+        "target": "exp",
+        "standardize": True,
+        "fit_mse_params": False,
+        "eps": 0.15,
+    }
+else:
+    raise ValueError(f"Invalid multidim model: {MULTIDIM_MODEL}")
+
 
 ENSEMBLE_GROUPS = [
     [0, 1, 2, 3, 4],
@@ -63,12 +109,15 @@ for group in ENSEMBLE_GROUPS:
     print(f"Ensemble accuracy: {np.mean(y_pred == y_test)}")
 
     multi_dim_uncertainty = MultiDimensionalUncertainty(
-        UNCERTAINTY_MEASURES, positive=True
+        UNCERTAINTY_MEASURES,
+        multidim_model=MULTIDIM_MODEL,
+        multidim_params=multidim_params,
     )
     multi_dim_uncertainty.fit(
         logits_train=X_train_cond,
         y_train=y_train_cond,
         logits_calib=X_calib,
+        train_kwargs=train_kwargs,
     )
 
     _, uncertainty_scores = multi_dim_uncertainty.predict(X_test)

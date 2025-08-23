@@ -37,36 +37,36 @@ BAYES_RISK_AND_BAYES_RISK = [
             "T": 1.0,
         },
     },
-    # {
-    #     "type": UncertaintyType.RISK,
-    #     "print_name": "Predictive entropy 3",
-    #     "kwargs": {
-    #         "g_name": GName.LOG_SCORE,
-    #         "risk_type": RiskType.BAYES_RISK,
-    #         "gt_approx": ApproximationType.OUTER,
-    #         "T": 1.0,
-    #     },
-    # },
-    # {
-    #     "type": UncertaintyType.RISK,
-    #     "print_name": "Predictive entropy 4",
-    #     "kwargs": {
-    #         "g_name": GName.LOG_SCORE,
-    #         "risk_type": RiskType.BAYES_RISK,
-    #         "gt_approx": ApproximationType.OUTER,
-    #         "T": 1.0,
-    #     },
-    # },
-    # {
-    #     "type": UncertaintyType.RISK,
-    #     "print_name": "Predictive entropy 5",
-    #     "kwargs": {
-    #         "g_name": GName.LOG_SCORE,
-    #         "risk_type": RiskType.BAYES_RISK,
-    #         "gt_approx": ApproximationType.OUTER,
-    #         "T": 1.0,
-    #     },
-    # },
+    {
+        "type": UncertaintyType.RISK,
+        "print_name": "Predictive entropy 3",
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.BAYES_RISK,
+            "gt_approx": ApproximationType.OUTER,
+            "T": 1.0,
+        },
+    },
+    {
+        "type": UncertaintyType.RISK,
+        "print_name": "Predictive entropy 4",
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.BAYES_RISK,
+            "gt_approx": ApproximationType.OUTER,
+            "T": 1.0,
+        },
+    },
+    {
+        "type": UncertaintyType.RISK,
+        "print_name": "Predictive entropy 5",
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.BAYES_RISK,
+            "gt_approx": ApproximationType.OUTER,
+            "T": 1.0,
+        },
+    },
 ]
 
 MAHALANOBIS_AND_BAYES_RISK = [

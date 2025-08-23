@@ -9,9 +9,13 @@ import torch.nn as nn
 from mdu.eval.eval_utils import get_ensemble_predictions
 from sklearn.model_selection import train_test_split
 from mdu.vis.toy_plots import plot_decision_boundaries
+from mdu.unc.constants import VectorQuantileModel
 
 
 def eval_unc_decomp(
+    multidim_model: VectorQuantileModel,
+    train_kwargs: dict,
+    multidim_params: dict,
     X: np.ndarray,
     y: np.ndarray,
     test_point: np.ndarray,
@@ -124,11 +128,14 @@ def eval_unc_decomp(
             )
 
             # Fit MultiDimensionalUncertainty on calibration logits
-            multi_dim_uncertainty = MultiDimensionalUncertainty(uncertainty_measures)
+            multi_dim_uncertainty = MultiDimensionalUncertainty(
+                uncertainty_measures, multidim_model, multidim_params
+            )
             multi_dim_uncertainty.fit(
                 logits_train=X_calib_logits,
                 y_train=y_calib,
                 logits_calib=X_calib_logits,
+                train_kwargs=train_kwargs,
             )
 
             # Predict uncertainty for test point

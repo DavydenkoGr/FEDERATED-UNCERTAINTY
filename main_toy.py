@@ -43,7 +43,8 @@ n_epochs_vqm = 10
 lr_vqm = 1e-4
 
 # MULTIDIM_MODEL = VectorQuantileModel.CPFLOW
-MULTIDIM_MODEL = VectorQuantileModel.OTCP
+# MULTIDIM_MODEL = VectorQuantileModel.OTCP
+MULTIDIM_MODEL = VectorQuantileModel.ENTROPIC_OT
 
 if MULTIDIM_MODEL == VectorQuantileModel.CPFLOW:
     train_kwargs = {
@@ -62,7 +63,7 @@ if MULTIDIM_MODEL == VectorQuantileModel.CPFLOW:
         "symm_act_first": False,
     }
 
-else:
+elif MULTIDIM_MODEL == VectorQuantileModel.OTCP:
     train_kwargs = {
         "batch_size": batch_size,
         "device": device,
@@ -70,6 +71,19 @@ else:
     multidim_params = {
         "positive": True,
     }
+elif MULTIDIM_MODEL == VectorQuantileModel.ENTROPIC_OT:
+    train_kwargs = {
+        "batch_size": batch_size,
+        "device": device,
+    }
+    multidim_params = {
+        "target": "exp",
+        "standardize": True,
+        "fit_mse_params": False,
+        "eps": 0.15,
+    }
+else:
+    raise ValueError(f"Invalid multidim model: {MULTIDIM_MODEL}")
 
 
 if dataset_name == DatasetName.BLOBS:
@@ -176,6 +190,8 @@ if MULTIDIM_MODEL == VectorQuantileModel.CPFLOW:
     X_grid_logits = torch.from_numpy(X_grid_logits).to(torch.float32).to(device)
 
 ordering_indices, uncertainty_scores = multi_dim_uncertainty.predict(X_grid_logits)
+
+print(uncertainty_scores['multidim_scores'].std())
 
 plot_uncertainty_measures(
     xx=xx,

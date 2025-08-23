@@ -18,10 +18,11 @@ from configs.uncertainty_measures_configs import (
     SINGLE_MEASURE,
 )
 
-UNCERTAINTY_MEASURES = BAYES_RISK_AND_BAYES_RISK #+ BAYES_RISK_AND_BAYES_RISK + EXCESSES_DIFFERENT_INSTANTIATIONS
+UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK # + BAYES_RISK_AND_BAYES_RISK + EXCESSES_DIFFERENT_INSTANTIATIONS
 
 # MULTIDIM_MODEL = VectorQuantileModel.CPFLOW
-MULTIDIM_MODEL = VectorQuantileModel.OTCP
+# MULTIDIM_MODEL = VectorQuantileModel.OTCP
+MULTIDIM_MODEL = VectorQuantileModel.ENTROPIC_OT
 
 device = torch.device("cuda:0")
 
@@ -42,7 +43,7 @@ if MULTIDIM_MODEL == VectorQuantileModel.CPFLOW:
         "symm_act_first": False,
     }
 
-else:
+elif MULTIDIM_MODEL == VectorQuantileModel.OTCP:
     train_kwargs = {
         "batch_size": 64,
         "device": device,
@@ -50,6 +51,19 @@ else:
     multidim_params = {
         "positive": True,
     }
+elif MULTIDIM_MODEL == VectorQuantileModel.ENTROPIC_OT:
+    train_kwargs = {
+        "batch_size": 64,
+        "device": device,
+    }
+    multidim_params = {
+        "target": "exp",
+        "standardize": True,
+        "fit_mse_params": False,
+        "eps": 0.25,
+    }
+else:
+    raise ValueError(f"Invalid multidim model: {MULTIDIM_MODEL}")
 
 
 ENSEMBLE_GROUPS = [

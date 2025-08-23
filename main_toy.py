@@ -14,6 +14,7 @@ from mdu.data.data_utils import split_dataset
 from mdu.data.constants import DatasetName
 from configs.uncertainty_measures_configs import (
     MAHALANOBIS_AND_BAYES_RISK,
+    GMM_AND_BAYES_RISK,
     EXCESSES_DIFFERENT_INSTANTIATIONS,
     EXCESSES_DIFFERENT_APPROXIMATIONS,
     BAYES_DIFFERENT_APPROXIMATIONS,
@@ -21,7 +22,7 @@ from configs.uncertainty_measures_configs import (
     BAYES_RISK_AND_BAYES_RISK,
 )
 
-UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK
+UNCERTAINTY_MEASURES = GMM_AND_BAYES_RISK
 
 set_all_seeds(1)
 

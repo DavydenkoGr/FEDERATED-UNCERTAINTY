@@ -18,7 +18,7 @@ from configs.uncertainty_measures_configs import (
     BAYES_DIFFERENT_INSTANTIATIONS,
 )
 
-UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK
+UNCERTAINTY_MEASURES = BAYES_DIFFERENT_INSTANTIATIONS
 
 MULTIDIM_MODEL = VectorQuantileModel.ENTROPIC_OT
 
@@ -55,7 +55,9 @@ elif MULTIDIM_MODEL == VectorQuantileModel.ENTROPIC_OT:
         "device": device,
     }
     multidim_params = {
-        "target": "beta",
+        "target": "exp",
+        "standardize": True,
+        "fit_mse_params": False,
         "eps": 0.15,
     }
 else:

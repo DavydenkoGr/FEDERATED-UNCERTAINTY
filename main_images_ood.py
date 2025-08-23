@@ -18,7 +18,7 @@ from configs.uncertainty_measures_configs import (
     SINGLE_MEASURE,
 )
 
-UNCERTAINTY_MEASURES = EXCESSES_DIFFERENT_APPROXIMATIONS  # + BAYES_RISK_AND_BAYES_RISK + EXCESSES_DIFFERENT_INSTANTIATIONS
+UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK # + BAYES_RISK_AND_BAYES_RISK + EXCESSES_DIFFERENT_INSTANTIATIONS
 
 # MULTIDIM_MODEL = VectorQuantileModel.CPFLOW
 # MULTIDIM_MODEL = VectorQuantileModel.OTCP
@@ -59,8 +59,8 @@ elif MULTIDIM_MODEL == VectorQuantileModel.ENTROPIC_OT:
     multidim_params = {
         "target": "exp",
         "standardize": True,
-        "fit_mse_params": True,
-        "eps": 0.15,
+        "fit_mse_params": False,
+        "eps": 0.25,
     }
 else:
     raise ValueError(f"Invalid multidim model: {MULTIDIM_MODEL}")

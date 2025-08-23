@@ -77,7 +77,7 @@ elif MULTIDIM_MODEL == VectorQuantileModel.ENTROPIC_OT:
         "device": device,
     }
     multidim_params = {
-        "target": "ball",
+        "target": "exp",
         "standardize": True,
         "fit_mse_params": False,
         "eps": 0.15,
@@ -190,6 +190,8 @@ if MULTIDIM_MODEL == VectorQuantileModel.CPFLOW:
     X_grid_logits = torch.from_numpy(X_grid_logits).to(torch.float32).to(device)
 
 ordering_indices, uncertainty_scores = multi_dim_uncertainty.predict(X_grid_logits)
+
+print(uncertainty_scores['multidim_scores'].std())
 
 plot_uncertainty_measures(
     xx=xx,

@@ -112,7 +112,9 @@ elif MULTIDIM_MODEL == VectorQuantileModel.ENTROPIC_OT:
         "device": device,
     }
     multidim_params = {
-        "target": "beta",
+        "target": "exp",
+        "standardize": True,
+        "fit_mse_params": False,
         "eps": 0.15,
     }
 else:

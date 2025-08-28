@@ -17,8 +17,11 @@ from configs.uncertainty_measures_configs import (
     BAYES_RISK_AND_BAYES_RISK,
     SINGLE_MEASURE,
 )
+from mdu.randomness import set_all_seeds
+seed = 42
+set_all_seeds(seed)
 
-UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK # + BAYES_RISK_AND_BAYES_RISK + EXCESSES_DIFFERENT_INSTANTIATIONS
+UNCERTAINTY_MEASURES = SINGLE_MEASURE # + BAYES_RISK_AND_BAYES_RISK + EXCESSES_DIFFERENT_INSTANTIATIONS
 
 # MULTIDIM_MODEL = VectorQuantileModel.CPFLOW
 # MULTIDIM_MODEL = VectorQuantileModel.OTCP
@@ -58,11 +61,12 @@ elif MULTIDIM_MODEL == VectorQuantileModel.ENTROPIC_OT:
     }
     multidim_params = {
         "target": "exp",
-        "standardize": True,
+        "standardize": False,
         "fit_mse_params": False,
-        "eps": 0.25,
-        "max_iters": 50,
+        "eps": 0.1,
+        "max_iters": 100,
         "tol": 1e-6,
+        "random_state": seed,
     }
 else:
     raise ValueError(f"Invalid multidim model: {MULTIDIM_MODEL}")
@@ -75,8 +79,8 @@ ENSEMBLE_GROUPS = [
     [15, 16, 17, 18, 19],
 ]
 
-ind_dataset = DatasetName.CIFAR100.value
-ood_dataset = DatasetName.TINY_IMAGENET.value
+ind_dataset = DatasetName.CIFAR10.value
+ood_dataset = DatasetName.CIFAR100.value
 
 results = defaultdict(list)
 
@@ -104,6 +108,7 @@ for group in ENSEMBLE_GROUPS:
         train_ratio=0.0,
         calib_ratio=0.1,
         test_ratio=0.8,
+        random_state=seed
     )
 
     y_train_cond = y_ind[train_cond_idx]
@@ -119,6 +124,7 @@ for group in ENSEMBLE_GROUPS:
         UNCERTAINTY_MEASURES,
         multidim_model=MULTIDIM_MODEL,
         multidim_params=multidim_params,
+        if_add_maximal_elements=True,
     )
     multi_dim_uncertainty.fit(
         logits_train=X_train_cond,

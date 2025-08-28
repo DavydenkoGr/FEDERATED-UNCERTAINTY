@@ -61,6 +61,8 @@ elif MULTIDIM_MODEL == VectorQuantileModel.ENTROPIC_OT:
         "standardize": True,
         "fit_mse_params": False,
         "eps": 0.25,
+        "max_iters": 50,
+        "tol": 1e-6,
     }
 else:
     raise ValueError(f"Invalid multidim model: {MULTIDIM_MODEL}")
@@ -73,7 +75,7 @@ ENSEMBLE_GROUPS = [
     [15, 16, 17, 18, 19],
 ]
 
-ind_dataset = DatasetName.CIFAR10.value
+ind_dataset = DatasetName.CIFAR100.value
 ood_dataset = DatasetName.TINY_IMAGENET.value
 
 results = defaultdict(list)

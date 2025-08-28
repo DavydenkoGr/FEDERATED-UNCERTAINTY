@@ -351,7 +351,7 @@ class MultiDimensionalUncertainty:
 
 
 def compute_all_uncertainties(
-    estimators: Sequence, logits: np.ndarray
+    estimators: Sequence[UncertaintyEstimator], logits: np.ndarray
 ) -> list[np.ndarray]:
     """Return [est.predict(logits) for each estimator]."""
     return [est.predict(logits) for est in estimators]

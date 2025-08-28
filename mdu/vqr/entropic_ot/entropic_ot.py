@@ -3,6 +3,27 @@ from typing import Tuple, Optional, Dict, Any
 from scipy.special import betainc as _betainc
 import numpy as np
 import torch
+import ot
+
+def _sinkhorn_potentials_pot(
+    a: np.ndarray, b: np.ndarray, C: np.ndarray,
+    eps: float, max_iters: int, tol: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    # Log-domain stabilized Sinkhorn. Returns plan and a log dict.
+    G, log = ot.bregman.sinkhorn_log(
+        a, b, C, reg=eps, numItermax=max_iters, stopThr=tol, log=True, verbose=False
+    )
+    # POT may provide either (alpha,beta) (dual potentials) or (u,v) (scalings).
+    if "alpha" in log and "beta" in log:
+        f = log["alpha"]                   # shape (n,)
+        g = log["beta"]                    # shape (m,)
+    else:
+        # fall back to u,v -> potentials: f = eps * log u, g = eps * log v
+        u = np.maximum(log["u"], 1e-300)
+        v = np.maximum(log["v"], 1e-300)
+        f = eps * np.log(u)
+        g = eps * np.log(v)
+    return f, g
 
 
 class EntropicOTOrdering(BaseMultidimensionalOrdering):
@@ -111,7 +132,8 @@ class EntropicOTOrdering(BaseMultidimensionalOrdering):
         a = np.full(n, 1.0 / n)
         b = np.full(m, 1.0 / m)
         C = self._cdist_sqeuclidean(Xz, self.Y_)
-        f, g = self._sinkhorn_log_balanced(a, b, C, self.eps, self.max_iters, self.tol)
+        # f, g = self._sinkhorn_log_balanced(a, b, C, self.eps, self.max_iters, self.tol)
+        f, g = _sinkhorn_potentials_pot(a, b, C, self.eps, self.max_iters, self.tol)
         self.g_ = g
         return self
 

@@ -263,7 +263,7 @@ class MultiDimensionalUncertainty:
                 binary_vector = [(i >> j) & 1 for j in range(n_measures)]
                 maximal_elements.append(np.array(binary_vector, dtype=float))
             
-            maximal_elements_matrix = np.vstack(maximal_elements) * 5
+            maximal_elements_matrix = np.vstack(maximal_elements) * 2
             uncertainty_matrix = np.vstack([uncertainty_matrix, maximal_elements_matrix])
 
 

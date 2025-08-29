@@ -129,7 +129,7 @@ def eval_unc_decomp(
 
             # Fit MultiDimensionalUncertainty on calibration logits
             multi_dim_uncertainty = MultiDimensionalUncertainty(
-                uncertainty_measures, multidim_model, multidim_params
+                uncertainty_measures, multidim_model, multidim_params, if_add_maximal_elements=True
             )
             multi_dim_uncertainty.fit(
                 logits_train=X_calib_logits,

@@ -139,17 +139,17 @@ EXCESSES_DIFFERENT_INSTANTIATIONS = [
             "T": 1.0,
         },
     },
-    {
-        "type": UncertaintyType.RISK,
-        "print_name": "EXC 1 1 (zero one)",
-        "kwargs": {
-            "g_name": GName.ZERO_ONE_SCORE,
-            "risk_type": RiskType.EXCESS_RISK,
-            "gt_approx": ApproximationType.OUTER,
-            "pred_approx": ApproximationType.OUTER,
-            "T": 1.0,
-        },
-    },
+    # {
+    #     "type": UncertaintyType.RISK,
+    #     "print_name": "EXC 1 1 (zero one)",
+    #     "kwargs": {
+    #         "g_name": GName.ZERO_ONE_SCORE,
+    #         "risk_type": RiskType.EXCESS_RISK,
+    #         "gt_approx": ApproximationType.OUTER,
+    #         "pred_approx": ApproximationType.OUTER,
+    #         "T": 1.0,
+    #     },
+    # },
 ]
 
 EXCESSES_DIFFERENT_APPROXIMATIONS = [

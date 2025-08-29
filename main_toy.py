@@ -22,7 +22,7 @@ from configs.uncertainty_measures_configs import (
     BAYES_RISK_AND_BAYES_RISK,
 )
 
-UNCERTAINTY_MEASURES = GMM_AND_BAYES_RISK
+UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK
 
 seed = 1
 set_all_seeds(seed)

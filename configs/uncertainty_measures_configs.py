@@ -14,28 +14,28 @@ ADDITIVE_TOTALS = [
             "T": 1.0,
         },
     },
-    # {
-    #     "type": UncertaintyType.RISK,
-    #     "print_name": "TOT 1 1 (brier)",
-    #     "kwargs": {
-    #         "g_name": GName.BRIER_SCORE,
-    #         "risk_type": RiskType.TOTAL_RISK,
-    #         "gt_approx": ApproximationType.OUTER,
-    #         "pred_approx": ApproximationType.OUTER,
-    #         "T": 1.0,
-    #     },
-    # },
-    # {
-    #     "type": UncertaintyType.RISK,
-    #     "print_name": "TOT 1 1 (sph)",
-    #     "kwargs": {
-    #         "g_name": GName.SPHERICAL_SCORE,
-    #         "risk_type": RiskType.TOTAL_RISK,
-    #         "gt_approx": ApproximationType.OUTER,
-    #         "pred_approx": ApproximationType.OUTER,
-    #         "T": 1.0,
-    #     },
-    # },
+    {
+        "type": UncertaintyType.RISK,
+        "print_name": "TOT 1 1 (brier)",
+        "kwargs": {
+            "g_name": GName.BRIER_SCORE,
+            "risk_type": RiskType.TOTAL_RISK,
+            "gt_approx": ApproximationType.OUTER,
+            "pred_approx": ApproximationType.OUTER,
+            "T": 1.0,
+        },
+    },
+    {
+        "type": UncertaintyType.RISK,
+        "print_name": "TOT 1 1 (sph)",
+        "kwargs": {
+            "g_name": GName.SPHERICAL_SCORE,
+            "risk_type": RiskType.TOTAL_RISK,
+            "gt_approx": ApproximationType.OUTER,
+            "pred_approx": ApproximationType.OUTER,
+            "T": 1.0,
+        },
+    },
     # {
     #     "type": UncertaintyType.RISK,
     #     "print_name": "TOT 1 1 (zero-one)",
@@ -44,6 +44,53 @@ ADDITIVE_TOTALS = [
     #         "risk_type": RiskType.TOTAL_RISK,
     #         "gt_approx": ApproximationType.OUTER,
     #         "pred_approx": ApproximationType.OUTER,
+    #         "T": 1.0,
+    #     },
+    # },
+]
+
+ADDITIVE_TOTALS_1_2 = [
+    {
+        "type": UncertaintyType.RISK,
+        "print_name": "TOT 1 2 (log)",
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.TOTAL_RISK,
+            "gt_approx": ApproximationType.OUTER,
+            "pred_approx": ApproximationType.INNER,
+            "T": 1.0,
+        },
+    },
+    {
+        "type": UncertaintyType.RISK,
+        "print_name": "TOT 1 2 (brier)",
+        "kwargs": {
+            "g_name": GName.BRIER_SCORE,
+            "risk_type": RiskType.TOTAL_RISK,
+            "gt_approx": ApproximationType.OUTER,
+            "pred_approx": ApproximationType.INNER,
+            "T": 1.0,
+        },
+    },
+    {
+        "type": UncertaintyType.RISK,
+        "print_name": "TOT 1 2 (sph)",
+        "kwargs": {
+            "g_name": GName.SPHERICAL_SCORE,
+            "risk_type": RiskType.TOTAL_RISK,
+            "gt_approx": ApproximationType.OUTER,
+            "pred_approx": ApproximationType.INNER,
+            "T": 1.0,
+        },
+    },
+    # {
+    #     "type": UncertaintyType.RISK,
+    #     "print_name": "TOT 1 2 (zero-one)",
+    #     "kwargs": {
+    #         "g_name": GName.ZERO_ONE_SCORE,
+    #         "risk_type": RiskType.TOTAL_RISK,
+    #         "gt_approx": ApproximationType.OUTER,
+    #         "pred_approx": ApproximationType.INNER,
     #         "T": 1.0,
     #     },
     # },

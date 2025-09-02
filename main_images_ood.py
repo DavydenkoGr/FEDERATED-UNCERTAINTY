@@ -140,7 +140,7 @@ def main(ensemble_groups, ind_dataset, ood_dataset, uncertainty_measures, multid
 
 if __name__ == "__main__":
     seed = 42
-    UNCERTAINTY_MEASURES = ADDITIVE_TOTALS # + BAYES_RISK_AND_BAYES_RISK + EXCESSES_DIFFERENT_INSTANTIATIONS
+    UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK # + BAYES_RISK_AND_BAYES_RISK + EXCESSES_DIFFERENT_INSTANTIATIONS
     MULTIDIM_MODEL = VectorQuantileModel.ENTROPIC_OT
 
     device = torch.device("cuda:0")

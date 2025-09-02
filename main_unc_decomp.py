@@ -11,7 +11,8 @@ import pandas as pd
 from mdu.vis.toy_plots import plot_data_and_test_point
 from mdu.unc.constants import VectorQuantileModel
 
-set_all_seeds(42)
+seed = 42
+set_all_seeds(seed)
 
 dataset_name = DatasetName.BLOBS
 n_classes = 2
@@ -113,9 +114,12 @@ elif MULTIDIM_MODEL == VectorQuantileModel.ENTROPIC_OT:
     }
     multidim_params = {
         "target": "exp",
-        "standardize": True,
+        "standardize": False,
         "fit_mse_params": False,
-        "eps": 0.15,
+        "eps": 0.1,
+        "max_iters": 100,
+        "tol": 1e-6,
+        "random_state": seed,
     }
 else:
     raise ValueError(f"Invalid multidim model: {MULTIDIM_MODEL}")

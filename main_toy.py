@@ -22,9 +22,10 @@ from configs.uncertainty_measures_configs import (
     BAYES_RISK_AND_BAYES_RISK,
 )
 
-UNCERTAINTY_MEASURES = GMM_AND_BAYES_RISK
+UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK
 
-set_all_seeds(1)
+seed = 1
+set_all_seeds(seed)
 
 dataset_name = DatasetName.BLOBS
 
@@ -79,9 +80,12 @@ elif MULTIDIM_MODEL == VectorQuantileModel.ENTROPIC_OT:
     }
     multidim_params = {
         "target": "exp",
-        "standardize": True,
+        "standardize": False,
         "fit_mse_params": False,
-        "eps": 0.15,
+        "eps": 0.1,
+        "max_iters": 100,
+        "tol": 1e-6,
+        "random_state": seed,
     }
 else:
     raise ValueError(f"Invalid multidim model: {MULTIDIM_MODEL}")
@@ -168,7 +172,10 @@ grid_tensor, xx, yy = plot_decision_boundaries(
 )
 
 multi_dim_uncertainty = MultiDimensionalUncertainty(
-    UNCERTAINTY_MEASURES, multidim_model=MULTIDIM_MODEL, multidim_params=multidim_params
+    UNCERTAINTY_MEASURES,
+    multidim_model=MULTIDIM_MODEL,
+    multidim_params=multidim_params,
+    if_add_maximal_elements=True,
 )
 
 multi_dim_uncertainty.fit(

@@ -9,7 +9,7 @@ from mdu.unc.risk_metrics.constants import RiskType
 from mdu.unc.general_metrics.mahalanobis import MahalanobisDistance
 from mdu.unc.general_metrics.gmm import GMM
 import torch
-
+from sklearn.preprocessing import MinMaxScaler
 
 class UncertaintyEstimator:
     """
@@ -173,6 +173,7 @@ class MultiDimensionalUncertainty:
         uncertainty_configs: List[Dict[str, Any]],
         multidim_model: VectorQuantileModel,
         multidim_params: Dict[str, Any],
+        if_add_maximal_elements: bool = False,
     ):
         """
         Initialize the ensemble with a list of uncertainty measure configurations.
@@ -189,7 +190,7 @@ class MultiDimensionalUncertainty:
             ensemble = UncertaintyEnsemble(configs)
         """
         self.uncertainty_configs = uncertainty_configs
-
+        self.if_add_maximal_elements = if_add_maximal_elements
         # Initialize individual uncertainty estimators
         self.uncertainty_estimators = []
         for config in uncertainty_configs:
@@ -248,8 +249,23 @@ class MultiDimensionalUncertainty:
         # Step 2: Compute uncertainty measures on calibration data
         calibration_uncertainties = self._compute_all_uncertainties(logits_calib)
 
-        # Step 3: Stack uncertainties into a matrix (n_samples, n_measures)
         uncertainty_matrix = np.column_stack(calibration_uncertainties)
+
+        if self.if_add_maximal_elements:
+            self.scaler = MinMaxScaler()
+            self.scaler.fit(uncertainty_matrix)
+            uncertainty_matrix = self.scaler.transform(uncertainty_matrix)
+            # uncertainty_matrix = 1 / (1 + np.exp(-uncertainty_matrix))
+            # Add maximal elements: all possible binary vectors {0,1}^d
+            n_measures = len(calibration_uncertainties)
+            maximal_elements = []
+            for i in range(1, 2**n_measures):  # Start from 1 to skip all-zeros vector
+                binary_vector = [(i >> j) & 1 for j in range(n_measures)]
+                maximal_elements.append(np.array(binary_vector, dtype=float))
+            
+            maximal_elements_matrix = np.vstack(maximal_elements) * 2
+            uncertainty_matrix = np.vstack([uncertainty_matrix, maximal_elements_matrix])
+
 
         train_loader = torch.utils.data.DataLoader(
             torch.tensor(
@@ -303,6 +319,11 @@ class MultiDimensionalUncertainty:
 
         # Step 2: Stack uncertainties into a matrix (n_samples, n_measures)
         uncertainty_matrix = np.column_stack(test_uncertainties)
+
+        if self.if_add_maximal_elements:
+            uncertainty_matrix = self.scaler.transform(uncertainty_matrix)
+            # uncertainty_matrix = 1 / (1 + np.exp(-uncertainty_matrix))
+
 
         if isinstance(self.vqr_model, torch.nn.Module):
             uncertainty_matrix = (

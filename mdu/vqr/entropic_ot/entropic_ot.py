@@ -289,7 +289,7 @@ class EntropicOTOrdering(BaseMultidimensionalOrdering):
 
         elif target == "exp":
             # Product of independent exponentials with rates λ_j > 0
-            lam = params.get("rates", 1.0)
+            lam = params.get("rates", 2.3) # 1 default
             lam = np.asarray(lam, dtype=float)
             if lam.size == 1:
                 lam = np.full(d, lam.item())

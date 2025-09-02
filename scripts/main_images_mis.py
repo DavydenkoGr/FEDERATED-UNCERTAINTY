@@ -1,3 +1,11 @@
+import sys
+from pathlib import Path
+
+# project root = parent of "scripts"
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from mdu.eval.eval_utils import load_pickle
 import numpy as np
 from collections import defaultdict
@@ -186,7 +194,7 @@ if __name__ == "__main__":
 
     train_dataset = DatasetName.CIFAR10.value
     eval_dataset = DatasetName.CIFAR10.value
-    weights_root = "./model_weights"
+    weights_root = "./resources/model_weights"
 
 
     df = main(ENSEMBLE_GROUPS, train_dataset, eval_dataset, UNCERTAINTY_MEASURES, MULTIDIM_MODEL, multidim_params, train_kwargs, weights_root, seed)

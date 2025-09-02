@@ -1,3 +1,11 @@
+import sys
+from pathlib import Path
+
+# project root = parent of "scripts"
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from mdu.eval.eval_utils import load_pickle
 import numpy as np
 import torch
@@ -124,10 +132,10 @@ def evaluate_uncertainty_measures(ind_dataset, ood_dataset, uncertainty_measures
         
         for model_id in group:
             ind_res = load_pickle(
-                f"./model_weights/{ind_dataset}/checkpoints/resnet18/CrossEntropy/{model_id}/{ind_dataset}.pkl"
+                f".resources/model_weights/{ind_dataset}/checkpoints/resnet18/CrossEntropy/{model_id}/{ind_dataset}.pkl"
             )
             ood_res = load_pickle(
-                f"./model_weights/{ind_dataset}/checkpoints/resnet18/CrossEntropy/{model_id}/{ood_dataset}.pkl"
+                f".resources/model_weights/{ind_dataset}/checkpoints/resnet18/CrossEntropy/{model_id}/{ood_dataset}.pkl"
             )
 
             all_ind_logits.append(ind_res["embeddings"][None])
@@ -276,7 +284,7 @@ def main():
     df = df[column_order]
     
     # Save results
-    output_filename = "total_11_eps007_aggregation_results.csv"
+    output_filename = "./resources/results/total_11_eps007_aggregation_results.csv"
     df.to_csv(output_filename, index=False)
     
     print(f"\nResults saved to {output_filename}")

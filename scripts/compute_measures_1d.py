@@ -1,3 +1,11 @@
+import sys
+from pathlib import Path
+
+# project root = parent of "scripts"
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from mdu.unc.multidimensional_uncertainty import compute_all_uncertainties
 from mdu.eval.eval_utils import load_pickle
 import numpy as np
@@ -171,10 +179,10 @@ for group in ENSEMBLE_GROUPS:
     all_ood_logits = []
     for model_id in group:
         ind_res = load_pickle(
-            f"./model_weights/{ind_dataset}/checkpoints/resnet18/CrossEntropy/{model_id}/{ind_dataset}.pkl"
+            f"./resources/model_weights/{ind_dataset}/checkpoints/resnet18/CrossEntropy/{model_id}/{ind_dataset}.pkl"
         )
         ood_res = load_pickle(
-            f"./model_weights/{ind_dataset}/checkpoints/resnet18/CrossEntropy/{model_id}/{ood_dataset}.pkl"
+            f"./resources/model_weights/{ind_dataset}/checkpoints/resnet18/CrossEntropy/{model_id}/{ood_dataset}.pkl"
         )
 
         logits_ind = ind_res["embeddings"]

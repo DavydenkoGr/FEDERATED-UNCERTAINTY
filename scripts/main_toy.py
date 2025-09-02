@@ -1,3 +1,11 @@
+import sys
+from pathlib import Path
+
+# project root = parent of "scripts"
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 import torch
 from mdu.randomness import set_all_seeds
 import numpy as np
@@ -16,8 +24,8 @@ from configs.uncertainty_measures_configs import (
     MAHALANOBIS_AND_BAYES_RISK,
     GMM_AND_BAYES_RISK,
     EXCESSES_DIFFERENT_INSTANTIATIONS,
-    EXCESSES_DIFFERENT_APPROXIMATIONS,
-    BAYES_DIFFERENT_APPROXIMATIONS,
+    EXCESSES_DIFFERENT_APPROXIMATIONS_LOGSCORE,
+    BAYES_DIFFERENT_APPROXIMATIONS_LOGSCORE,
     BAYES_DIFFERENT_INSTANTIATIONS,
     BAYES_RISK_AND_BAYES_RISK,
 )

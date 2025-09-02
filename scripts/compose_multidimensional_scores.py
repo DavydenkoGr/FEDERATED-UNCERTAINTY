@@ -1,3 +1,11 @@
+import sys
+from pathlib import Path
+
+# project root = parent of "scripts"
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 # save as scripts/combo_from_npz.py
 from __future__ import annotations
 import itertools
@@ -33,7 +41,7 @@ def find_measures(results_root: str|Path, ind: str, ood: str) -> dict[str, Path]
     return out
 
 def run(n: int, ind: str, ood: str, results_root: str|Path):
-    out_csv = f"results/{ind}_{ood}_{n}_combo_results.csv"
+    out_csv = f".resources/results/{ind}_{ood}_{n}_combo_results.csv"
 
     measures = find_measures(results_root, ind, ood)
     if len(measures) < n:
@@ -144,6 +152,6 @@ if __name__ == "__main__":
     p.add_argument("--n", type=int, required=True)
     p.add_argument("--ind_dataset", type=str, required=True)
     p.add_argument("--ood_dataset", type=str, required=True)
-    p.add_argument("--results_root", type=str, default="results")
+    p.add_argument("--results_root", type=str, default=".resources/results")
     args = p.parse_args()
     df = run(args.n, args.ind_dataset, args.ood_dataset, args.results_root)

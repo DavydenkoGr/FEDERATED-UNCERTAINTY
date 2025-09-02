@@ -109,8 +109,8 @@ def plot_decision_boundaries(
     plt.tight_layout()
 
     # Ensure the pics directory exists
-    os.makedirs("pics", exist_ok=True)
-    plt.savefig(f"pics/{name}.pdf", bbox_inches="tight")
+    os.makedirs("./resources/pics", exist_ok=True)
+    plt.savefig(f"./resources/pics/{name}.pdf", bbox_inches="tight")
 
     plt.show()
 
@@ -206,7 +206,7 @@ def plot_uncertainty_measures(xx, yy, uncertainty_measures_dict, X_test=None):
         axes[idx].set_visible(False)
 
     # Save and display
-    plt.savefig("./pics/uq_grid_visualization.pdf", bbox_inches="tight", dpi=150)
+    plt.savefig("./resources/pics/uq_grid_visualization.pdf", bbox_inches="tight", dpi=150)
     plt.show()
 
 
@@ -229,5 +229,5 @@ def plot_data_and_test_point(X_test, y_test, test_point):
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig("pics/2d_test_point.pdf", bbox_inches="tight")
+    plt.savefig("./resources/pics/2d_test_point.pdf", bbox_inches="tight")
     plt.show()

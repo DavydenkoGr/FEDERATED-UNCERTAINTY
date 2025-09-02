@@ -3,6 +3,7 @@
 pics/
 model_weights/
 results/
+resources/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

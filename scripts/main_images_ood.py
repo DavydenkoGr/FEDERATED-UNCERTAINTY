@@ -29,6 +29,7 @@ from configs.uncertainty_measures_configs import (
     SINGLE_MEASURE,
     ADDITIVE_TOTALS,
     CORRESPONDING_COMPONENTS_TO_ADDITIVE_TOTALS,
+    EAT_M
 )
 from mdu.randomness import set_all_seeds
 
@@ -148,7 +149,9 @@ def main(ensemble_groups, ind_dataset, ood_dataset, uncertainty_measures, multid
 
 if __name__ == "__main__":
     seed = 42
-    UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK # + BAYES_RISK_AND_BAYES_RISK + EXCESSES_DIFFERENT_INSTANTIATIONS
+    # UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK # + BAYES_RISK_AND_BAYES_RISK + EXCESSES_DIFFERENT_INSTANTIATIONS
+    UNCERTAINTY_MEASURES = EAT_M
+    print(UNCERTAINTY_MEASURES)
     MULTIDIM_MODEL = VectorQuantileModel.ENTROPIC_OT
 
     device = torch.device("cuda:0")

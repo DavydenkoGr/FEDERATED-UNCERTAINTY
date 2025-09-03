@@ -44,6 +44,9 @@ parser.add_argument(
         DatasetName.CIFAR100.value,
         DatasetName.TINY_IMAGENET.value,
         DatasetName.SVHN.value,
+        DatasetName.IMAGENET_A.value,
+        DatasetName.IMAGENET_O.value,
+        DatasetName.IMAGENET_R.value,
     ],
 )
 parser.add_argument(
@@ -178,12 +181,20 @@ for group in ENSEMBLE_GROUPS:
     all_ind_logits = []
     all_ood_logits = []
     for model_id in group:
-        ind_res = load_pickle(
-            f"./resources/model_weights/{ind_dataset}/checkpoints/resnet18/CrossEntropy/{model_id}/{ind_dataset}.pkl"
-        )
-        ood_res = load_pickle(
-            f"./resources/model_weights/{ind_dataset}/checkpoints/resnet18/CrossEntropy/{model_id}/{ood_dataset}.pkl"
-        )
+        if ind_dataset == DatasetName.TINY_IMAGENET.value:
+            ind_res = load_pickle(
+                f"./resources/model_weights/{ind_dataset}/{model_id}/{ind_dataset}.pkl"
+            )
+            ood_res = load_pickle(
+                f"./resources/model_weights/{ind_dataset}/{model_id}/{ood_dataset}.pkl"
+            )
+        else:
+            ind_res = load_pickle(
+                f"./resources/model_weights/{ind_dataset}/checkpoints/resnet18/CrossEntropy/{model_id}/{ind_dataset}.pkl"
+            )
+            ood_res = load_pickle(
+                f"./resources/model_weights/{ind_dataset}/checkpoints/resnet18/CrossEntropy/{model_id}/{ood_dataset}.pkl"
+            )
 
         logits_ind = ind_res["embeddings"]
         all_ind_logits.append(ind_res["embeddings"][None])
@@ -228,14 +239,14 @@ import os
 # Determine uncertainty type string for path
 if args.uncertainty_measure_type.lower() == "risk":
     uncertainty_type_str = f"risk_{args.uncertainty_measure_gname.lower()}_{args.uncertainty_measure_risk_type.lower()}_{args.uncertainty_measure_gt_approx.lower()}"
-    if args.uncertainty_measure_pred_approx:
+    if args.uncertainty_measure_pred_approx is not None:
         uncertainty_type_str += f"_{args.uncertainty_measure_pred_approx.lower()}"
     uncertainty_type_str += f"_T_{args.uncertainty_measure_T}"
 else:
     uncertainty_type_str = args.uncertainty_measure_type.lower()
 
 # Create directory path
-save_dir = os.path.join("results", ind_dataset, uncertainty_type_str, ood_dataset)
+save_dir = os.path.join("resources/results_cleaned", ind_dataset, uncertainty_type_str, ood_dataset)
 os.makedirs(save_dir, exist_ok=True)
 
 # Create filename

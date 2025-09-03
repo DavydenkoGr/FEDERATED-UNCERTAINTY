@@ -279,7 +279,7 @@ def config_to_enum_params(config):
         gname = getattr(GName, kwargs['g_name'])
         risk_type = getattr(RiskType, kwargs['risk_type'])
         gt_approx = getattr(ApproximationType, kwargs['gt_approx'])
-        pred_approx = getattr(ApproximationType, kwargs.get('pred_approx', 'CENTRAL'))
+        pred_approx = getattr(ApproximationType, kwargs.get('pred_approx', None))
         return uncertainty_type, gname, risk_type, gt_approx, pred_approx
     elif config['type'] == 'MAHALANOBIS':
         return UncertaintyType.MAHALANOBIS, None, None, None, None

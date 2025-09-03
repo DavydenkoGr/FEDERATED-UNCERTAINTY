@@ -11,6 +11,7 @@ from mdu.unc.constants import UncertaintyType
 from mdu.data.constants import DatasetName
 from mdu.eval.eval_utils import load_pickle
 from mdu.data.data_utils import split_dataset_indices
+from sklearn.preprocessing import MinMaxScaler
 
 from typing import Optional
 import numpy as np
@@ -42,7 +43,7 @@ def get_results_path(
     risk_type_: Optional[RiskType] = None,
     gt_approximation_: Optional[ApproximationType] = None,
     pred_approximation_: Optional[ApproximationType] = None,
-    results_root: str = "./resources/results"
+    results_root: str = "./resources/results_cleaned"
 ):
     """Get path to uncertainty measure results file"""
     ind_dataset = ind_dataset_.value.lower()
@@ -86,7 +87,7 @@ def load_predictions_and_split(
         # Load logits from ensemble models in this group
         all_ind_logits = []
         for model_id in group:
-            if ind_dataset == DatasetName.TINY_IMAGENET:
+            if ind_dataset == DatasetName.TINY_IMAGENET.value:
                 eval_res = load_pickle(
                     f"{weights_root}/{ind_dataset}/{model_id}/{ind_dataset}.pkl"
                 )
@@ -279,7 +280,9 @@ def config_to_enum_params(config):
         gname = getattr(GName, kwargs['g_name'])
         risk_type = getattr(RiskType, kwargs['risk_type'])
         gt_approx = getattr(ApproximationType, kwargs['gt_approx'])
-        pred_approx = getattr(ApproximationType, kwargs.get('pred_approx', None))
+        pred_approx = None
+        if kwargs.get('pred_approx', None) is not None:
+            pred_approx = getattr(ApproximationType, kwargs.get('pred_approx', None))
         return uncertainty_type, gname, risk_type, gt_approx, pred_approx
     elif config['type'] == 'MAHALANOBIS':
         return UncertaintyType.MAHALANOBIS, None, None, None, None
@@ -351,6 +354,18 @@ def process_multidimensional_composition(
                 tol=args.entropic_tol,
                 random_state=args.entropic_random_state
             )
+            scaler = MinMaxScaler()
+            scaler.fit(uncertainty_matrix_calib)
+            uncertainty_matrix_calib = scaler.transform(uncertainty_matrix_calib)
+            n_measures = uncertainty_matrix_calib.shape[1]
+            maximal_elements = []
+            for i in range(1, 2**n_measures):  # Start from 1 to skip all-zeros vector
+                binary_vector = [(i >> j) & 1 for j in range(n_measures)]
+                maximal_elements.append(np.array(binary_vector, dtype=float))
+            
+            maximal_elements_matrix = np.vstack(maximal_elements) * 2
+            uncertainty_matrix_calib = np.vstack([uncertainty_matrix_calib, maximal_elements_matrix])
+
             
             train_loader = torch.utils.data.DataLoader(
                 torch.tensor(uncertainty_matrix_calib, dtype=torch.float32, device="cpu"),
@@ -362,6 +377,9 @@ def process_multidimensional_composition(
                 model.fit(train_loader, {})
                 
                 # Predict on test data
+                uncertainty_matrix_ind = scaler.transform(uncertainty_matrix_ind)
+                uncertainty_matrix_ood = scaler.transform(uncertainty_matrix_ood)
+
                 uncertainty_scores_ind, _ = model.predict(uncertainty_matrix_ind)
                 uncertainty_scores_ood, _ = model.predict(uncertainty_matrix_ood)
                 
@@ -468,16 +486,18 @@ def process_multidimensional_composition(
                 continue
         
         if args.verbose:
-            print(f"✓ Processed composition {composition_name} for {ind_dataset.value}->{ood_dataset.value}")
+            # print(f"✓ Processed composition {composition_name} for {ind_dataset.value}->{ood_dataset.value}")
+            pass
             
     except Exception as e:
         if args.verbose:
-            print(f"✗ Failed to process composition {composition_name} for {ind_dataset.value}->{ood_dataset.value}: {e}")
+            if ind_dataset.value != ood_dataset.value:
+                print(f"✗ Failed to process composition {composition_name} for {ind_dataset.value}->{ood_dataset.value}: {e}")
 
 
 def main():
     parser = argparse.ArgumentParser(description='Full evaluation of uncertainty measures')
-    parser.add_argument('--results_root', type=str, default='./resources/results',
+    parser.add_argument('--results_root', type=str, default='./resources/results_cleaned',
                        help='Root directory for uncertainty measure results')
     parser.add_argument('--weights_root', type=str, default='./resources/model_weights',
                        help='Root directory for model weights')
@@ -518,7 +538,8 @@ def main():
             pred_data = load_predictions_and_split(ind_dataset, weights_root=args.weights_root)
             prediction_data[ind_dataset] = pred_data
             if args.verbose:
-                print(f"✓ Loaded predictions for {ind_dataset.value}")
+                # print(f"✓ Loaded predictions for {ind_dataset.value}")
+                pass
         except Exception as e:
             print(f"✗ Failed to load predictions for {ind_dataset.value}: {e}")
             prediction_data[ind_dataset] = None
@@ -748,11 +769,13 @@ def process_uncertainty_measure(ind_dataset, ood_dataset, uncertainty_type, gnam
                 })
         
         if args.verbose:
-            print(f"✓ Processed {measure_id} for {ind_dataset.value}->{ood_dataset.value}")
+            pass
+            # print(f"✓ Processed {measure_id} for {ind_dataset.value}->{ood_dataset.value}")
             
     except Exception as e:
         if args.verbose:
-            print(f"✗ Failed to process {measure_id if 'measure_id' in locals() else 'unknown'} for {ind_dataset.value}->{ood_dataset.value}: {e}")
+            if ind_dataset.value != ood_dataset.value:
+                print(f"✗ Failed to process {measure_id if 'measure_id' in locals() else 'unknown'} for {ind_dataset.value}->{ood_dataset.value}: {e}")
     
     if pbar is not None:
         pbar.update(1)

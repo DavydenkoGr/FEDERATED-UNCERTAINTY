@@ -35,6 +35,28 @@ import torch
 from configs.interesting_compositions import INTERESTING_COMPOSITIONS
 
 
+class GlobalMinMaxScaler:
+    """Simple global min-max scaler that uses global min/max across all features"""
+    
+    def __init__(self):
+        self.global_min_ = None
+        self.global_max_ = None
+        
+    def fit(self, X):
+        """Fit the scaler using global min/max from the data"""
+        self.global_min_ = np.min(X)
+        self.global_max_ = np.max(X)
+        return self
+        
+    def transform(self, X):
+        """Transform data using global min/max"""
+        if self.global_max_ > self.global_min_:
+            return (X - self.global_min_) / (self.global_max_ - self.global_min_)
+        else:
+            # If all values are the same, return zeros
+            return np.zeros_like(X)
+
+
 def get_results_path(
     ind_dataset_: DatasetName,
     ood_dataset_: DatasetName,
@@ -266,6 +288,9 @@ def create_output_filename(base_filename, args):
     entropic_params.append(f"iters_{args.entropic_max_iters}")
     entropic_params.append(f"tol_{args.entropic_tol}")
     entropic_params.append(f"rs_{args.entropic_random_state}")
+    entropic_params.append(f"grid_size_{args.grid_size}")
+    if args.global_scaler:
+        entropic_params.append("global_scaler")
     
     entropic_str = "_".join(entropic_params)
     
@@ -354,7 +379,12 @@ def process_multidimensional_composition(
                 tol=args.entropic_tol,
                 random_state=args.entropic_random_state
             )
-            scaler = MinMaxScaler()
+            # Choose scaling approach based on args.global_scaler
+            if args.global_scaler:
+                scaler = GlobalMinMaxScaler()
+            else:
+                scaler = MinMaxScaler()
+            
             scaler.fit(uncertainty_matrix_calib)
             uncertainty_matrix_calib = scaler.transform(uncertainty_matrix_calib)
             n_measures = uncertainty_matrix_calib.shape[1]
@@ -363,7 +393,7 @@ def process_multidimensional_composition(
                 binary_vector = [(i >> j) & 1 for j in range(n_measures)]
                 maximal_elements.append(np.array(binary_vector, dtype=float))
             
-            maximal_elements_matrix = np.vstack(maximal_elements) * 2
+            maximal_elements_matrix = np.vstack(maximal_elements) * args.grid_size # we used 2
             uncertainty_matrix_calib = np.vstack([uncertainty_matrix_calib, maximal_elements_matrix])
 
             
@@ -376,7 +406,7 @@ def process_multidimensional_composition(
             try:
                 model.fit(train_loader, {})
                 
-                # Predict on test data
+                # Apply scaling to test data using the same scaler (works for both global and feature-wise)
                 uncertainty_matrix_ind = scaler.transform(uncertainty_matrix_ind)
                 uncertainty_matrix_ood = scaler.transform(uncertainty_matrix_ood)
 
@@ -516,6 +546,10 @@ def main():
                        help='EntropicOT tolerance (default: 1e-6)')
     parser.add_argument('--entropic_random_state', type=int, default=42,
                        help='EntropicOT random state (default: 42)')
+    parser.add_argument('--grid_size', type=int, default=2,
+                       help='EntropicOT grid size (default: 2)')
+    parser.add_argument('--global_scaler', action='store_true',
+                       help='Use global MinMaxScaler (find global min/max across all data) instead of feature-wise scaling')
     
     args = parser.parse_args()
     

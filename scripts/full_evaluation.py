@@ -33,29 +33,7 @@ warnings.filterwarnings(
 from mdu.vqr.entropic_ot.entropic_ot import EntropicOTOrdering
 import torch
 from configs.interesting_compositions import INTERESTING_COMPOSITIONS
-
-
-class GlobalMinMaxScaler:
-    """Simple global min-max scaler that uses global min/max across all features"""
-    
-    def __init__(self):
-        self.global_min_ = None
-        self.global_max_ = None
-        
-    def fit(self, X):
-        """Fit the scaler using global min/max from the data"""
-        self.global_min_ = np.min(X)
-        self.global_max_ = np.max(X)
-        return self
-        
-    def transform(self, X):
-        """Transform data using global min/max"""
-        if self.global_max_ > self.global_min_:
-            return (X - self.global_min_) / (self.global_max_ - self.global_min_)
-        else:
-            # If all values are the same, return zeros
-            return np.zeros_like(X)
-
+from mdu.data.scalers import GlobalMinMaxScaler, MahalanobisWhiteningScaler
 
 def get_results_path(
     ind_dataset_: DatasetName,
@@ -289,13 +267,17 @@ def create_output_filename(base_filename, args):
     entropic_params.append(f"tol_{args.entropic_tol}")
     entropic_params.append(f"rs_{args.entropic_random_state}")
     entropic_params.append(f"grid_size_{args.grid_size}")
-    if args.global_scaler:
+    
+    # Add scaler information
+    if args.scaler_type == 'global':
         entropic_params.append("global_scaler")
+    elif args.scaler_type == 'mahalanobis':
+        entropic_params.append("mahalanobis")
+    # feature_wise is default, no need to add to filename
     
     entropic_str = "_".join(entropic_params)
     
     return f"{base_name}_entropic_{entropic_str}{extension}"
-
 
 def config_to_enum_params(config):
     """Convert config dict to enum parameters for get_results_path"""
@@ -379,10 +361,12 @@ def process_multidimensional_composition(
                 tol=args.entropic_tol,
                 random_state=args.entropic_random_state
             )
-            # Choose scaling approach based on args.global_scaler
-            if args.global_scaler:
+            # Choose scaling approach based on args.scaler_type
+            if args.scaler_type == 'global':
                 scaler = GlobalMinMaxScaler()
-            else:
+            elif args.scaler_type == 'mahalanobis':
+                scaler = MahalanobisWhiteningScaler()
+            else:  # 'feature_wise'
                 scaler = MinMaxScaler()
             
             scaler.fit(uncertainty_matrix_calib)
@@ -548,10 +532,14 @@ def main():
                        help='EntropicOT random state (default: 42)')
     parser.add_argument('--grid_size', type=int, default=2,
                        help='EntropicOT grid size (default: 2)')
-    parser.add_argument('--global_scaler', action='store_true',
-                       help='Use global MinMaxScaler (find global min/max across all data) instead of feature-wise scaling')
+    parser.add_argument('--scaler_type', type=str, default='feature_wise', 
+                       choices=['feature_wise', 'global', 'mahalanobis'],
+                       help='Scaler type: feature_wise (default MinMaxScaler), global (GlobalMinMaxScaler), mahalanobis (MahalanobisWhiteningScaler)')
+    # Keep backward compatibility
+
     
     args = parser.parse_args()
+    
     
     # Define all possible combinations
     datasets_ind = [DatasetName.CIFAR10, DatasetName.CIFAR100, DatasetName.TINY_IMAGENET]

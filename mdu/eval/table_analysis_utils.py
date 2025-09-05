@@ -351,6 +351,7 @@ def check_composite_dominance(df: pd.DataFrame) -> pd.DataFrame:
     """
     For each row, check whether the 'composite*' column outperforms other measures
     by >=100%, >=75%, and >=50% of them (higher is better).
+    Also checks if composite is better than the worst of its components.
     """
     composite_cols = [c for c in df.columns if c.startswith("composite")]
     if not composite_cols:
@@ -365,6 +366,7 @@ def check_composite_dominance(df: pd.DataFrame) -> pd.DataFrame:
     dominance_100: List[bool] = []
     dominance_75: List[bool] = []
     dominance_50: List[bool] = []
+    beats_worst: List[bool] = []
 
     for _, row in df.iterrows():
         comp_val = row[composite_col]
@@ -372,6 +374,7 @@ def check_composite_dominance(df: pd.DataFrame) -> pd.DataFrame:
             dominance_100.append(False)
             dominance_75.append(False)
             dominance_50.append(False)
+            beats_worst.append(False)
             continue
 
         other_values = [row[c] for c in other_cols if pd.notna(row[c])]
@@ -379,6 +382,7 @@ def check_composite_dominance(df: pd.DataFrame) -> pd.DataFrame:
             dominance_100.append(False)
             dominance_75.append(False)
             dominance_50.append(False)
+            beats_worst.append(False)
             continue
 
         beats_count = sum(1 for v in other_values if comp_val > v)
@@ -388,10 +392,15 @@ def check_composite_dominance(df: pd.DataFrame) -> pd.DataFrame:
         dominance_100.append(pct >= 1.0)
         dominance_75.append(pct >= 0.75)
         dominance_50.append(pct >= 0.50)
+        
+        # Check if composite beats the worst component
+        worst_component = min(other_values)
+        beats_worst.append(comp_val > worst_component)
 
     result_df["if_dominates_100%"] = dominance_100
     result_df["if_dominates_75%"] = dominance_75
     result_df["if_dominates_50%"] = dominance_50
+    result_df["beats_worst_component"] = beats_worst
     return result_df
 
 

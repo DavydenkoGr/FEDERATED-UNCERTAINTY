@@ -17,3 +17,6 @@ class DatasetName(Enum):
     BLURRED_CIFAR100 = "blurred_cifar100"
     SVHN = "svhn"
     TINY_IMAGENET = "tiny_imagenet"
+    IMAGENET_A = "imagenet_a"
+    IMAGENET_O = "imagenet_o"
+    IMAGENET_R = "imagenet_r"

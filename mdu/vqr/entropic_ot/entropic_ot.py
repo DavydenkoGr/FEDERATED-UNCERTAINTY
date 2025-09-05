@@ -5,9 +5,14 @@ import numpy as np
 import torch
 import ot
 
+
 def _sinkhorn_potentials_pot(
-    a: np.ndarray, b: np.ndarray, C: np.ndarray,
-    eps: float, max_iters: int, tol: float,
+    a: np.ndarray,
+    b: np.ndarray,
+    C: np.ndarray,
+    eps: float,
+    max_iters: int,
+    tol: float,
 ) -> tuple[np.ndarray, np.ndarray]:
     # Log-domain stabilized Sinkhorn. Returns plan and a log dict.
     G, log = ot.bregman.sinkhorn_log(
@@ -15,8 +20,8 @@ def _sinkhorn_potentials_pot(
     )
     # POT may provide either (alpha,beta) (dual potentials) or (u,v) (scalings).
     if "alpha" in log and "beta" in log:
-        f = log["alpha"]                   # shape (n,)
-        g = log["beta"]                    # shape (m,)
+        f = log["alpha"]  # shape (n,)
+        g = log["beta"]  # shape (m,)
     else:
         # fall back to u,v -> potentials: f = eps * log u, g = eps * log v
         u = np.maximum(log["u"], 1e-300)
@@ -80,6 +85,7 @@ class EntropicOTOrdering(BaseMultidimensionalOrdering):
         fit_mse_params: bool = False,
         eps: float = 0.25,
         n_targets: Optional[int] = None,
+        n_targets_multiplier: int = 1,
         standardize: bool = True,
         max_iters: int = 2000,
         tol: float = 1e-9,
@@ -90,6 +96,7 @@ class EntropicOTOrdering(BaseMultidimensionalOrdering):
         self.fit_mse_params = fit_mse_params
         self.eps = float(eps)
         self.n_targets = n_targets
+        self.n_targets_multiplier = n_targets_multiplier
         self.standardize = bool(standardize)
         self.max_iters = int(max_iters)
         self.tol = float(tol)
@@ -126,6 +133,7 @@ class EntropicOTOrdering(BaseMultidimensionalOrdering):
 
         # sample target cloud
         m = int(self.n_targets) if self.n_targets is not None else n
+        m = m * self.n_targets_multiplier
         self.Y_ = self._sample_target(self.target, m, d, self.params)
 
         # Sinkhorn (log domain) to get dual potentials
@@ -225,22 +233,22 @@ class EntropicOTOrdering(BaseMultidimensionalOrdering):
     def _fit_target_params(self, data: np.ndarray, target: str) -> Dict[str, Any]:
         target = target.lower()
         n_samples, n_features = data.shape
-        
+
         if target == "ball":
             return {}
-            
+
         elif target == "exp":
             rates = np.zeros(n_features)
             for j in range(n_features):
                 mean_j = np.mean(data[:, j])
                 rates[j] = 1.0 / max(mean_j, 1e-12)  # Avoid division by zero
             return {"rates": rates}
-            
+
         elif target == "beta":
             # Fit beta distribution parameters coordinate-wise using method of moments
             alpha = np.zeros(n_features)
             beta = np.zeros(n_features)
-            
+
             for j in range(n_features):
                 # Check if data is in [0, 1] range for beta distribution
                 if np.any(data[:, j] < 0) or np.any(data[:, j] > 1):
@@ -249,32 +257,30 @@ class EntropicOTOrdering(BaseMultidimensionalOrdering):
                         f"but column {j} has values in [{np.min(data[:, j]):.6f}, {np.max(data[:, j]):.6f}]"
                     )
                 col_data = np.clip(data[:, j], 1e-12, 1 - 1e-12)
-                
+
                 # Method of moments estimators
                 sample_mean = np.mean(col_data)
                 sample_var = np.var(col_data)
-                
+
                 # Avoid numerical issues
                 sample_mean = np.clip(sample_mean, 1e-6, 1 - 1e-6)
                 sample_var = min(sample_var, sample_mean * (1 - sample_mean) * 0.99)
-                
+
                 # Method of moments formulas
                 nu = sample_mean * (1 - sample_mean) / sample_var - 1
                 alpha[j] = sample_mean * nu
                 beta[j] = (1 - sample_mean) * nu
-                
+
                 # Ensure positive parameters
                 alpha[j] = max(alpha[j], 0.1)
                 beta[j] = max(beta[j], 0.1)
-                
+
             return {"alpha": alpha, "beta": beta}
-            
+
         else:
             raise ValueError(
                 f"Unknown target '{target}' (use 'ball', 'exp', or 'beta')."
             )
-
-
 
     def _sample_target(
         self, target: str, m: int, d: int, params: Dict[str, Any]
@@ -289,7 +295,7 @@ class EntropicOTOrdering(BaseMultidimensionalOrdering):
 
         elif target == "exp":
             # Product of independent exponentials with rates λ_j > 0
-            lam = params.get("rates", 2.3) # 1 default
+            lam = params.get("rates", 2.3)  # 1 default
             lam = np.asarray(lam, dtype=float)
             if lam.size == 1:
                 lam = np.full(d, lam.item())

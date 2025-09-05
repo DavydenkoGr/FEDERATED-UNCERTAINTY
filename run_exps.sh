@@ -1,0 +1,9 @@
+uv run python scripts/full_evaluation.py --entropic_target exp --entropic_eps 0.5 --entropic_max_iters 150 --grid_size 2 --entropic_n_targets_multiplier 1 --scaler_type feature_wise --output_file ./per_comp_scaled_benchmark.csv --verbose
+uv run python scripts/full_evaluation.py --entropic_target exp --entropic_eps 0.5 --entropic_max_iters 150 --grid_size 2 --entropic_n_targets_multiplier 2 --scaler_type feature_wise --output_file ./per_comp_scaled_benchmark.csv --verbose
+uv run python scripts/full_evaluation.py --entropic_target exp --entropic_eps 0.5 --entropic_max_iters 150 --grid_size 5 --entropic_n_targets_multiplier 1 --scaler_type feature_wise --output_file ./per_comp_scaled_benchmark.csv --verbose
+uv run python scripts/full_evaluation.py --entropic_target exp --entropic_eps 0.5 --entropic_max_iters 150 --grid_size 5 --entropic_n_targets_multiplier 2 --scaler_type feature_wise --output_file ./per_comp_scaled_benchmark.csv --verbose
+
+uv run python scripts/full_evaluation.py --entropic_target exp --entropic_eps 2.0 --entropic_max_iters 150 --grid_size 2 --entropic_n_targets_multiplier 1 --scaler_type feature_wise --output_file ./per_comp_scaled_benchmark.csv --verbose
+uv run python scripts/full_evaluation.py --entropic_target exp --entropic_eps 2.0 --entropic_max_iters 150 --grid_size 2 --entropic_n_targets_multiplier 2 --scaler_type feature_wise --output_file ./per_comp_scaled_benchmark.csv --verbose
+uv run python scripts/full_evaluation.py --entropic_target exp --entropic_eps 2.0 --entropic_max_iters 150 --grid_size 5 --entropic_n_targets_multiplier 1 --scaler_type feature_wise --output_file ./per_comp_scaled_benchmark.csv --verbose
+uv run python scripts/full_evaluation.py --entropic_target exp --entropic_eps 2.0 --entropic_max_iters 150 --grid_size 5 --entropic_n_targets_multiplier 2 --scaler_type feature_wise --output_file ./per_comp_scaled_benchmark.csv --verbose

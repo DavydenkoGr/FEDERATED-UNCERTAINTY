@@ -28,8 +28,18 @@ from configs.uncertainty_measures_configs import (
 )
 from mdu.randomness import set_all_seeds
 
-def main(ensemble_groups, train_dataset, eval_dataset, uncertainty_measures, multidim_model, multidim_params, train_kwargs, weights_root, seed):
 
+def main(
+    ensemble_groups,
+    train_dataset,
+    eval_dataset,
+    uncertainty_measures,
+    multidim_model,
+    multidim_params,
+    train_kwargs,
+    weights_root,
+    seed,
+):
     set_all_seeds(seed)
 
     results = defaultdict(list)
@@ -104,7 +114,6 @@ def main(ensemble_groups, train_dataset, eval_dataset, uncertainty_measures, mul
 
     print(f"For metrics: {[m['print_name'] for m in uncertainty_measures]}")
 
-
     rows = []
     for metric, aucs in results.items():
         mean_auc = np.mean(aucs)
@@ -132,8 +141,6 @@ def main(ensemble_groups, train_dataset, eval_dataset, uncertainty_measures, mul
     )
 
     return df
-
-
 
 
 if __name__ == "__main__":
@@ -184,7 +191,6 @@ if __name__ == "__main__":
     else:
         raise ValueError(f"Invalid multidim model: {MULTIDIM_MODEL}")
 
-
     ENSEMBLE_GROUPS = [
         [0, 1, 2, 3, 4],
         [5, 6, 7, 8, 9],
@@ -196,8 +202,17 @@ if __name__ == "__main__":
     eval_dataset = DatasetName.CIFAR10.value
     weights_root = "./resources/model_weights"
 
-
-    df = main(ENSEMBLE_GROUPS, train_dataset, eval_dataset, UNCERTAINTY_MEASURES, MULTIDIM_MODEL, multidim_params, train_kwargs, weights_root, seed)
+    df = main(
+        ENSEMBLE_GROUPS,
+        train_dataset,
+        eval_dataset,
+        UNCERTAINTY_MEASURES,
+        MULTIDIM_MODEL,
+        multidim_params,
+        train_kwargs,
+        weights_root,
+        seed,
+    )
 
     print("\nSummary of ROC AUCs across groups:")
     print(df)

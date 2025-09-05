@@ -4,9 +4,8 @@ set -uo pipefail
 # Toggle to preview commands without running: DRY_RUN=1 ./uncertainty_script.sh
 DRY_RUN="${DRY_RUN:-0}"
 
-# Datasets
-DATASETS_IND=(cifar10 cifar100)
-DATASETS_OOD=(cifar10 cifar100 tiny_imagenet svhn)
+# In-distribution datasets
+DATASETS_IND=(cifar10 cifar100 tiny_imagenet)
 
 # Uncertainty types
 U_TYPES=(Risk Mahalanobis GMM)
@@ -34,8 +33,17 @@ run() {
   ((SUCC++))
 }
 
+ood_list_for() {
+  case "$1" in
+    cifar10|cifar100) echo "cifar10 cifar100 tiny_imagenet svhn" ;;
+    tiny_imagenet)    echo "imagenet_a imagenet_o imagenet_r tiny_imagenet" ;;
+    *)                echo "" ;;
+  esac
+}
+
 for ind in "${DATASETS_IND[@]}"; do
-  for ood in "${DATASETS_OOD[@]}"; do
+  IFS=' ' read -r -a OODS <<< "$(ood_list_for "$ind")"
+  for ood in "${OODS[@]}"; do
     [[ "$ind" == "$ood" ]] && continue
 
     for utype in "${U_TYPES[@]}"; do
@@ -43,11 +51,12 @@ for ind in "${DATASETS_IND[@]}"; do
         for gname in "${GNAMES[@]}"; do
           for rtype in "${RISK_TYPES[@]}"; do
             for gt in "${APPROXES[@]}"; do
-              for pred in "${APPROXES[@]}"; do
+
+              if [[ "$rtype" == "BayesRisk" ]]; then
                 for T in "${T_LIST[@]}"; do
-                  print_name="Risk_${gname}_${rtype}_gt_${gt}_pred_${pred}"
+                  print_name="Risk_${gname}_${rtype}_gt_${gt}"
                   cmd=(
-                    uv run python compute_measures_1d.py
+                    uv run python scripts/compute_measures_1d.py
                     --ind_dataset "$ind"
                     --ood_dataset "$ood"
                     --uncertainty_measure_type "$utype"
@@ -55,21 +64,40 @@ for ind in "${DATASETS_IND[@]}"; do
                     --uncertainty_measure_gname "$gname"
                     --uncertainty_measure_risk_type "$rtype"
                     --uncertainty_measure_gt_approx "$gt"
-                    --uncertainty_measure_pred_approx "$pred"
                     --uncertainty_measure_T "$T"
                   )
                   run "${cmd[@]}"
                   ((total++))
                 done
-              done
+              else
+                for pred in "${APPROXES[@]}"; do
+                  for T in "${T_LIST[@]}"; do
+                    print_name="Risk_${gname}_${rtype}_gt_${gt}_pred_${pred}"
+                    cmd=(
+                      uv run python scripts/compute_measures_1d.py
+                      --ind_dataset "$ind"
+                      --ood_dataset "$ood"
+                      --uncertainty_measure_type "$utype"
+                      --uncertainty_measure_print_name "$print_name"
+                      --uncertainty_measure_gname "$gname"
+                      --uncertainty_measure_risk_type "$rtype"
+                      --uncertainty_measure_gt_approx "$gt"
+                      --uncertainty_measure_pred_approx "$pred"
+                      --uncertainty_measure_T "$T"
+                    )
+                    run "${cmd[@]}"
+                    ((total++))
+                  done
+                done
+              fi
+
             done
           done
         done
       else
-        # Mahalanobis / GMM: only pass the flags that apply
         print_name="$utype"
         cmd=(
-          uv run python compute_measures_1d.py
+          uv run python scripts/compute_measures_1d.py
           --ind_dataset "$ind"
           --ood_dataset "$ood"
           --uncertainty_measure_type "$utype"

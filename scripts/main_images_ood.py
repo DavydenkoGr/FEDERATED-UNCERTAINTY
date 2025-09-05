@@ -5,7 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-    
+
 from mdu.eval.eval_utils import load_pickle
 import numpy as np
 import torch
@@ -29,11 +29,22 @@ from configs.uncertainty_measures_configs import (
     SINGLE_MEASURE,
     ADDITIVE_TOTALS,
     CORRESPONDING_COMPONENTS_TO_ADDITIVE_TOTALS,
+    EAT_M,
 )
 from mdu.randomness import set_all_seeds
 
 
-def main(ensemble_groups, ind_dataset, ood_dataset, uncertainty_measures, multidim_model, multidim_params, train_kwargs, weights_root, seed):
+def main(
+    ensemble_groups,
+    ind_dataset,
+    ood_dataset,
+    uncertainty_measures,
+    multidim_model,
+    multidim_params,
+    train_kwargs,
+    weights_root,
+    seed,
+):
     set_all_seeds(seed)
     results = defaultdict(list)
 
@@ -61,7 +72,7 @@ def main(ensemble_groups, ind_dataset, ood_dataset, uncertainty_measures, multid
             train_ratio=0.0,
             calib_ratio=0.1,
             test_ratio=0.8,
-            random_state=seed
+            random_state=seed,
         )
 
         y_train_cond = y_ind[train_cond_idx]
@@ -86,7 +97,9 @@ def main(ensemble_groups, ind_dataset, ood_dataset, uncertainty_measures, multid
             train_kwargs=train_kwargs,
         )
         if multidim_model == VectorQuantileModel.CPFLOW:
-            X_test = torch.from_numpy(X_test).to(torch.float32).to(train_kwargs["device"])
+            X_test = (
+                torch.from_numpy(X_test).to(torch.float32).to(train_kwargs["device"])
+            )
             X_ood = torch.from_numpy(X_ood).to(torch.float32).to(train_kwargs["device"])
 
         _, uncertainty_scores_ind = multi_dim_uncertainty.predict(X_test)
@@ -114,7 +127,6 @@ def main(ensemble_groups, ind_dataset, ood_dataset, uncertainty_measures, multid
     print(f"test_idx.shape: {test_idx.shape}")
 
     print(f"For metrics: {[m['print_name'] for m in uncertainty_measures]}")
-
 
     rows = []
     for metric, aucs in results.items():
@@ -145,10 +157,11 @@ def main(ensemble_groups, ind_dataset, ood_dataset, uncertainty_measures, multid
     return df
 
 
-
 if __name__ == "__main__":
     seed = 42
-    UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK # + BAYES_RISK_AND_BAYES_RISK + EXCESSES_DIFFERENT_INSTANTIATIONS
+    # UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK # + BAYES_RISK_AND_BAYES_RISK + EXCESSES_DIFFERENT_INSTANTIATIONS
+    UNCERTAINTY_MEASURES = EAT_M
+    print(UNCERTAINTY_MEASURES)
     MULTIDIM_MODEL = VectorQuantileModel.ENTROPIC_OT
 
     device = torch.device("cuda:0")
@@ -195,7 +208,6 @@ if __name__ == "__main__":
     else:
         raise ValueError(f"Invalid multidim model: {MULTIDIM_MODEL}")
 
-
     ENSEMBLE_GROUPS = [
         [0, 1, 2, 3, 4],
         [5, 6, 7, 8, 9],
@@ -207,5 +219,15 @@ if __name__ == "__main__":
     ood_dataset = DatasetName.CIFAR100.value
     weights_root = "./resources/model_weights"
 
-    df = main(ENSEMBLE_GROUPS, ind_dataset, ood_dataset, UNCERTAINTY_MEASURES, MULTIDIM_MODEL, multidim_params, train_kwargs, weights_root, seed)
+    df = main(
+        ENSEMBLE_GROUPS,
+        ind_dataset,
+        ood_dataset,
+        UNCERTAINTY_MEASURES,
+        MULTIDIM_MODEL,
+        multidim_params,
+        train_kwargs,
+        weights_root,
+        seed,
+    )
     print(df)

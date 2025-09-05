@@ -1,6 +1,46 @@
 from mdu.unc.constants import UncertaintyType
 from mdu.unc.risk_metrics.constants import GName, RiskType, ApproximationType
 
+EAT_M = [
+    {
+        "type": UncertaintyType.RISK,
+        "print_name": "TOT 1 1 (log)",
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.TOTAL_RISK,
+            "gt_approx": ApproximationType.OUTER,
+            "pred_approx": ApproximationType.OUTER,
+            "T": 1.0,
+        },
+    },
+    {
+        "type": UncertaintyType.RISK,
+        "print_name": "EXC 1 1 (log)",
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.EXCESS_RISK,
+            "gt_approx": ApproximationType.OUTER,
+            "pred_approx": ApproximationType.OUTER,
+            "T": 1.0,
+        },
+    },
+    {
+        "type": UncertaintyType.RISK,
+        "print_name": "BAYES 1 (log)",
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.BAYES_RISK,
+            "gt_approx": ApproximationType.OUTER,
+            "T": 1.0,
+        },
+    },
+    {
+        "type": UncertaintyType.MAHALANOBIS,
+        "print_name": "Mahalanobis score",
+        "kwargs": {},
+    },
+]
+
 
 ADDITIVE_TOTALS = [
     {
@@ -119,7 +159,6 @@ CORRESPONDING_COMPONENTS_TO_ADDITIVE_TOTALS = [
     #         "T": 1.0,
     #     },
     # },
-
     # {
     #     "type": UncertaintyType.RISK,
     #     "print_name": "EXC 1 1 (brier)",
@@ -141,7 +180,6 @@ CORRESPONDING_COMPONENTS_TO_ADDITIVE_TOTALS = [
     #         "T": 1.0,
     #     },
     # },
-
     # {
     #     "type": UncertaintyType.RISK,
     #     "print_name": "EXC 1 1 (sph)",
@@ -163,7 +201,6 @@ CORRESPONDING_COMPONENTS_TO_ADDITIVE_TOTALS = [
     #         "T": 1.0,
     #     },
     # },
-
     {
         "type": UncertaintyType.RISK,
         "print_name": "EXC 1 1 (zero-one)",

@@ -44,6 +44,9 @@ parser.add_argument(
         DatasetName.CIFAR100.value,
         DatasetName.TINY_IMAGENET.value,
         DatasetName.SVHN.value,
+        DatasetName.IMAGENET_A.value,
+        DatasetName.IMAGENET_O.value,
+        DatasetName.IMAGENET_R.value,
     ],
 )
 parser.add_argument(
@@ -108,10 +111,24 @@ ind_dataset = args.ind_dataset
 ood_dataset = args.ood_dataset
 uncertainty_measure_type = UncertaintyType(args.uncertainty_measure_type)
 uncertainty_measure_print_name = args.uncertainty_measure_print_name
-uncertainty_measure_gname = GName(args.uncertainty_measure_gname) if args.uncertainty_measure_gname else None
-uncertainty_measure_risk_type = RiskType(args.uncertainty_measure_risk_type) if args.uncertainty_measure_risk_type else None
-uncertainty_measure_gt_approx = ApproximationType(args.uncertainty_measure_gt_approx) if args.uncertainty_measure_gt_approx else None
-uncertainty_measure_pred_approx = ApproximationType(args.uncertainty_measure_pred_approx) if args.uncertainty_measure_pred_approx else None
+uncertainty_measure_gname = (
+    GName(args.uncertainty_measure_gname) if args.uncertainty_measure_gname else None
+)
+uncertainty_measure_risk_type = (
+    RiskType(args.uncertainty_measure_risk_type)
+    if args.uncertainty_measure_risk_type
+    else None
+)
+uncertainty_measure_gt_approx = (
+    ApproximationType(args.uncertainty_measure_gt_approx)
+    if args.uncertainty_measure_gt_approx
+    else None
+)
+uncertainty_measure_pred_approx = (
+    ApproximationType(args.uncertainty_measure_pred_approx)
+    if args.uncertainty_measure_pred_approx
+    else None
+)
 uncertainty_measure_T = args.uncertainty_measure_T
 
 
@@ -178,12 +195,20 @@ for group in ENSEMBLE_GROUPS:
     all_ind_logits = []
     all_ood_logits = []
     for model_id in group:
-        ind_res = load_pickle(
-            f"./resources/model_weights/{ind_dataset}/checkpoints/resnet18/CrossEntropy/{model_id}/{ind_dataset}.pkl"
-        )
-        ood_res = load_pickle(
-            f"./resources/model_weights/{ind_dataset}/checkpoints/resnet18/CrossEntropy/{model_id}/{ood_dataset}.pkl"
-        )
+        if ind_dataset == DatasetName.TINY_IMAGENET.value:
+            ind_res = load_pickle(
+                f"./resources/model_weights/{ind_dataset}/{model_id}/{ind_dataset}.pkl"
+            )
+            ood_res = load_pickle(
+                f"./resources/model_weights/{ind_dataset}/{model_id}/{ood_dataset}.pkl"
+            )
+        else:
+            ind_res = load_pickle(
+                f"./resources/model_weights/{ind_dataset}/checkpoints/resnet18/CrossEntropy/{model_id}/{ind_dataset}.pkl"
+            )
+            ood_res = load_pickle(
+                f"./resources/model_weights/{ind_dataset}/checkpoints/resnet18/CrossEntropy/{model_id}/{ood_dataset}.pkl"
+            )
 
         logits_ind = ind_res["embeddings"]
         all_ind_logits.append(ind_res["embeddings"][None])
@@ -208,7 +233,7 @@ for group in ENSEMBLE_GROUPS:
     X_test = np.vstack(all_ind_logits)[:, test_idx, :]
 
     estimator[0] = estimator[0].fit(X_train_cond, y_train_cond)
-    
+
     X_ind = X_test
     X_calib = X_calib
     X_ood = np.vstack(all_ood_logits)
@@ -228,14 +253,16 @@ import os
 # Determine uncertainty type string for path
 if args.uncertainty_measure_type.lower() == "risk":
     uncertainty_type_str = f"risk_{args.uncertainty_measure_gname.lower()}_{args.uncertainty_measure_risk_type.lower()}_{args.uncertainty_measure_gt_approx.lower()}"
-    if args.uncertainty_measure_pred_approx:
+    if args.uncertainty_measure_pred_approx is not None:
         uncertainty_type_str += f"_{args.uncertainty_measure_pred_approx.lower()}"
     uncertainty_type_str += f"_T_{args.uncertainty_measure_T}"
 else:
     uncertainty_type_str = args.uncertainty_measure_type.lower()
 
 # Create directory path
-save_dir = os.path.join("results", ind_dataset, uncertainty_type_str, ood_dataset)
+save_dir = os.path.join(
+    "resources/results_cleaned", ind_dataset, uncertainty_type_str, ood_dataset
+)
 os.makedirs(save_dir, exist_ok=True)
 
 # Create filename
@@ -246,6 +273,10 @@ else:
 
 # Save to file
 save_path = os.path.join(save_dir, filename)
-np.savez(save_path, ind_test=results[ind_dataset], ind_calib=results[ind_dataset + "_calib"], ood=results[ood_dataset])
+np.savez(
+    save_path,
+    ind_test=results[ind_dataset],
+    ind_calib=results[ind_dataset + "_calib"],
+    ood=results[ood_dataset],
+)
 print(f"Results saved to: {save_path}")
-

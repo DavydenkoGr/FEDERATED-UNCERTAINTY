@@ -111,10 +111,24 @@ ind_dataset = args.ind_dataset
 ood_dataset = args.ood_dataset
 uncertainty_measure_type = UncertaintyType(args.uncertainty_measure_type)
 uncertainty_measure_print_name = args.uncertainty_measure_print_name
-uncertainty_measure_gname = GName(args.uncertainty_measure_gname) if args.uncertainty_measure_gname else None
-uncertainty_measure_risk_type = RiskType(args.uncertainty_measure_risk_type) if args.uncertainty_measure_risk_type else None
-uncertainty_measure_gt_approx = ApproximationType(args.uncertainty_measure_gt_approx) if args.uncertainty_measure_gt_approx else None
-uncertainty_measure_pred_approx = ApproximationType(args.uncertainty_measure_pred_approx) if args.uncertainty_measure_pred_approx else None
+uncertainty_measure_gname = (
+    GName(args.uncertainty_measure_gname) if args.uncertainty_measure_gname else None
+)
+uncertainty_measure_risk_type = (
+    RiskType(args.uncertainty_measure_risk_type)
+    if args.uncertainty_measure_risk_type
+    else None
+)
+uncertainty_measure_gt_approx = (
+    ApproximationType(args.uncertainty_measure_gt_approx)
+    if args.uncertainty_measure_gt_approx
+    else None
+)
+uncertainty_measure_pred_approx = (
+    ApproximationType(args.uncertainty_measure_pred_approx)
+    if args.uncertainty_measure_pred_approx
+    else None
+)
 uncertainty_measure_T = args.uncertainty_measure_T
 
 
@@ -219,7 +233,7 @@ for group in ENSEMBLE_GROUPS:
     X_test = np.vstack(all_ind_logits)[:, test_idx, :]
 
     estimator[0] = estimator[0].fit(X_train_cond, y_train_cond)
-    
+
     X_ind = X_test
     X_calib = X_calib
     X_ood = np.vstack(all_ood_logits)
@@ -246,7 +260,9 @@ else:
     uncertainty_type_str = args.uncertainty_measure_type.lower()
 
 # Create directory path
-save_dir = os.path.join("resources/results_cleaned", ind_dataset, uncertainty_type_str, ood_dataset)
+save_dir = os.path.join(
+    "resources/results_cleaned", ind_dataset, uncertainty_type_str, ood_dataset
+)
 os.makedirs(save_dir, exist_ok=True)
 
 # Create filename
@@ -257,6 +273,10 @@ else:
 
 # Save to file
 save_path = os.path.join(save_dir, filename)
-np.savez(save_path, ind_test=results[ind_dataset], ind_calib=results[ind_dataset + "_calib"], ood=results[ood_dataset])
+np.savez(
+    save_path,
+    ind_test=results[ind_dataset],
+    ind_calib=results[ind_dataset + "_calib"],
+    ood=results[ood_dataset],
+)
 print(f"Results saved to: {save_path}")
-

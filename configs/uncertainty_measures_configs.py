@@ -159,7 +159,6 @@ CORRESPONDING_COMPONENTS_TO_ADDITIVE_TOTALS = [
     #         "T": 1.0,
     #     },
     # },
-
     # {
     #     "type": UncertaintyType.RISK,
     #     "print_name": "EXC 1 1 (brier)",
@@ -181,7 +180,6 @@ CORRESPONDING_COMPONENTS_TO_ADDITIVE_TOTALS = [
     #         "T": 1.0,
     #     },
     # },
-
     # {
     #     "type": UncertaintyType.RISK,
     #     "print_name": "EXC 1 1 (sph)",
@@ -203,7 +201,6 @@ CORRESPONDING_COMPONENTS_TO_ADDITIVE_TOTALS = [
     #         "T": 1.0,
     #     },
     # },
-
     {
         "type": UncertaintyType.RISK,
         "print_name": "EXC 1 1 (zero-one)",

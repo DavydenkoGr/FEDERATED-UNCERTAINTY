@@ -43,6 +43,7 @@ _EVAL_ORDER: Sequence[str] = (
 
 # ---- Core helpers ---------------------------------------------------------------------
 
+
 def prettify_measure(name: str) -> str:
     """
     Map internal 'measure' names to the display labels used in tables.
@@ -173,7 +174,13 @@ def transform_by_tasks(
     Returns a single DataFrame or (mean_table, std_table) if include_std is True.
     Preserves exceptions and averaging logic exactly.
     """
-    required = {"ind_dataset", "ood_dataset", "measure", "problem_type", "ensemble_group"}
+    required = {
+        "ind_dataset",
+        "ood_dataset",
+        "measure",
+        "problem_type",
+        "ensemble_group",
+    }
     missing = required - set(df.columns)
     if missing:
         raise KeyError(f"Input CSV is missing required columns: {sorted(missing)}")
@@ -229,6 +236,7 @@ def transform_by_tasks(
 
 
 # ---- Composites -----------------------------------------------------------------------
+
 
 def select_composite_and_components(
     transformed_df: pd.DataFrame, composite_name: str
@@ -291,7 +299,9 @@ def select_composite_and_components(
             print(f"Warning: Skipping invalid config: {config}")
 
     if not prettified_names:
-        raise ValueError(f"No valid component names found for composite '{composite_name}'")
+        raise ValueError(
+            f"No valid component names found for composite '{composite_name}'"
+        )
 
     available_columns = list(transformed_df.columns)
     matching_columns: List[str] = []
@@ -317,14 +327,20 @@ def select_composite_and_components(
         result_df[composite_pretty] = transformed_df[composite_pretty]
         matching_columns.append(composite_pretty)
     else:
-        print(f"Note: Composite measure '{composite_pretty}' not found in DataFrame columns")
+        print(
+            f"Note: Composite measure '{composite_pretty}' not found in DataFrame columns"
+        )
 
     if len(matching_columns) - (1 if composite_pretty in matching_columns else 0) < len(
         prettified_names
     ):
         missing_prettified = [n for n in prettified_names if n not in available_columns]
-        missing_config = [component_names[prettified_names.index(n)] for n in missing_prettified]
-        print(f"Note: {len(missing_prettified)} component measures were not found in DataFrame:")
+        missing_config = [
+            component_names[prettified_names.index(n)] for n in missing_prettified
+        ]
+        print(
+            f"Note: {len(missing_prettified)} component measures were not found in DataFrame:"
+        )
         for mp, mc in zip(missing_prettified, missing_config):
             print(f"  - {mp} (from config: {mc})")
 
@@ -381,6 +397,7 @@ def check_composite_dominance(df: pd.DataFrame) -> pd.DataFrame:
 
 # ---- Pareto utilities ----------------------------------------------------------------
 
+
 def pareto_front(points: Sequence[Tuple[float, float]]) -> List[int]:
     """Return indices of Pareto-optimal points (2D). Behavior unchanged."""
     pareto: List[int] = []
@@ -409,15 +426,21 @@ def analyze_composite_pareto_performance(
 
     for composite_name in composite_names.keys():
         try:
-            composite_df = select_composite_and_components(transformed_df, composite_name)
+            composite_df = select_composite_and_components(
+                transformed_df, composite_name
+            )
 
-            composite_cols = [c for c in composite_df.columns if c.startswith("composite")]
+            composite_cols = [
+                c for c in composite_df.columns if c.startswith("composite")
+            ]
             if not composite_cols:
                 print(f"No composite column found for {composite_name}")
                 continue
 
             composite_col = composite_cols[0]
-            component_cols = [c for c in composite_df.columns if not c.startswith("composite")]
+            component_cols = [
+                c for c in composite_df.columns if not c.startswith("composite")
+            ]
             if len(component_cols) < 2:
                 print(f"Not enough components for {composite_name} (need at least 2)")
                 continue
@@ -467,6 +490,7 @@ def analyze_composite_pareto_performance(
 
 
 # ---- Ranking --------------------------------------------------------------------------
+
 
 def compute_average_ranks(transformed_df: pd.DataFrame) -> pd.Series:
     """

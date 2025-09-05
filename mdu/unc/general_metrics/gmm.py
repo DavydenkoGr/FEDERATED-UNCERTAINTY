@@ -38,7 +38,9 @@ class GMM(BaseEstimator, TransformerMixin):
         """
         self.n_models_ = X.shape[0]
         self.classes_, class_counts_ = np.unique(y, return_counts=True)
-        self.class_weights_ = {c: count / len(y) for c, count in zip(self.classes_, class_counts_)}
+        self.class_weights_ = {
+            c: count / len(y) for c, count in zip(self.classes_, class_counts_)
+        }
 
         for i in range(self.n_models_):
             Xi = X[i]
@@ -75,7 +77,9 @@ class GMM(BaseEstimator, TransformerMixin):
             current_scores = []
 
             for c in self.classes_:
-                log_pdf = multivariate_normal(mean=self.class_mean_[i][c], cov=self.std_[i][c]).logpdf(Xi)
+                log_pdf = multivariate_normal(
+                    mean=self.class_mean_[i][c], cov=self.std_[i][c]
+                ).logpdf(Xi)
                 current_scores.append(log_pdf + np.log(self.class_weights_[c]))
             current_scores_array = np.vstack(current_scores)
             model_scores[i] = logsumexp(current_scores_array, axis=0)

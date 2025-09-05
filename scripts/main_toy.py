@@ -207,7 +207,7 @@ if MULTIDIM_MODEL == VectorQuantileModel.CPFLOW:
 
 ordering_indices, uncertainty_scores = multi_dim_uncertainty.predict(X_grid_logits)
 
-print(uncertainty_scores['multidim_scores'].std())
+print(uncertainty_scores["multidim_scores"].std())
 
 plot_uncertainty_measures(
     xx=xx,

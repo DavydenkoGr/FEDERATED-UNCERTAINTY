@@ -18,6 +18,7 @@ from mdu.vqr.entropic_ot.entropic_ot import EntropicOTOrdering
 import torch
 from tqdm.auto import tqdm
 import warnings
+
 warnings.filterwarnings(
     "ignore",
     message=r"Sinkhorn did not converge\.",
@@ -26,8 +27,7 @@ warnings.filterwarnings(
 )
 
 
-
-def find_measures(results_root: str|Path, ind: str, ood: str) -> dict[str, Path]:
+def find_measures(results_root: str | Path, ind: str, ood: str) -> dict[str, Path]:
     base = Path(results_root) / ind
     out = {}
     if not base.exists():
@@ -40,25 +40,26 @@ def find_measures(results_root: str|Path, ind: str, ood: str) -> dict[str, Path]
                 out[mdir.name] = files[-1]  # pick one
     return out
 
-def run(n: int, ind: str, ood: str, results_root: str|Path):
+
+def run(n: int, ind: str, ood: str, results_root: str | Path):
     out_csv = f".resources/results/{ind}_{ood}_{n}_combo_results.csv"
 
     measures = find_measures(results_root, ind, ood)
     if len(measures) < n:
-        raise ValueError(f"Only {len(measures)} measures found for ({ind},{ood}), need n={n}")
+        raise ValueError(
+            f"Only {len(measures)} measures found for ({ind},{ood}), need n={n}"
+        )
 
     rows = []
     all_combinations = list(itertools.combinations(sorted(measures.keys()), n))
     np.random.shuffle(all_combinations)
-    all_combinations = all_combinations[:min(int(0.15 * len(all_combinations)), 300)]
+    all_combinations = all_combinations[: min(int(0.15 * len(all_combinations)), 300)]
 
     for count, combo_names in enumerate(tqdm(all_combinations)):
-
         # combo_names is a tuple of size n
         individual_measures_results = [np.load(measures[name]) for name in combo_names]
 
-        for group_idx in range(4): # 4 groups in the dataset
-
+        for group_idx in range(4):  # 4 groups in the dataset
             row = {}
             row["ind_dataset"] = ind
             row["ood_dataset"] = ood
@@ -67,11 +68,11 @@ def run(n: int, ind: str, ood: str, results_root: str|Path):
             uncertainty_matrix_ind = []
             uncertainty_matrix_calib = []
             uncertainty_matrix_ood = []
-            
+
             for i, res in enumerate(individual_measures_results):
-                ind_scores = res['ind_test'][group_idx][0]
-                ood_scores = res['ood'][group_idx][0]
-                calib_scores = res['ind_calib'][group_idx][0]
+                ind_scores = res["ind_test"][group_idx][0]
+                ood_scores = res["ood"][group_idx][0]
+                calib_scores = res["ind_calib"][group_idx][0]
 
                 # Concatenate scores and labels
                 all_scores = np.concatenate([ind_scores, ood_scores])
@@ -110,17 +111,21 @@ def run(n: int, ind: str, ood: str, results_root: str|Path):
                 batch_size=128,
                 shuffle=True,
             )
-            
+
             try:
                 model.fit(train_loader, {})
 
                 uncertainty_scores_ind, _ = model.predict(uncertainty_matrix_ind)
                 uncertainty_scores_ood, _ = model.predict(uncertainty_matrix_ood)
 
-                all_scores = np.concatenate([uncertainty_scores_ind, uncertainty_scores_ood])
+                all_scores = np.concatenate(
+                    [uncertainty_scores_ind, uncertainty_scores_ood]
+                )
                 all_labels = np.concatenate(
                     [
-                        np.zeros_like(uncertainty_scores_ind),  # class 0: in-distribution
+                        np.zeros_like(
+                            uncertainty_scores_ind
+                        ),  # class 0: in-distribution
                         np.ones_like(uncertainty_scores_ood),  # class 1: OOD
                     ]
                 )
@@ -146,6 +151,7 @@ def run(n: int, ind: str, ood: str, results_root: str|Path):
     write_header = (not out_csv.exists()) or out_csv.stat().st_size == 0
     df.to_csv(out_csv, mode="a", index=False, header=write_header)
     return df
+
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()

@@ -11,6 +11,7 @@ from mdu.unc.general_metrics.gmm import GMM
 import torch
 from sklearn.preprocessing import MinMaxScaler
 
+
 class UncertaintyEstimator:
     """
     General wrapper for uncertainty estimation, providing a scikit-learn-like interface
@@ -92,9 +93,7 @@ class UncertaintyEstimator:
             self.is_fitted = True
         elif self.uncertainty_type == UncertaintyType.GMM:
             if train_logits is None:
-                raise ValueError(
-                    "train_logits must be provided for GMM uncertainty."
-                )
+                raise ValueError("train_logits must be provided for GMM uncertainty.")
             self.model = GMM().fit(X=train_logits, y=y_train)
             self.is_fitted = True
         elif self.uncertainty_type == UncertaintyType.RISK:
@@ -122,7 +121,10 @@ class UncertaintyEstimator:
                 "UncertaintyEstimator must be fitted before calling predict."
             )
 
-        if self.uncertainty_type == UncertaintyType.MAHALANOBIS or self.uncertainty_type == UncertaintyType.GMM:
+        if (
+            self.uncertainty_type == UncertaintyType.MAHALANOBIS
+            or self.uncertainty_type == UncertaintyType.GMM
+        ):
             if self.model is None:
                 raise RuntimeError("Mahalanobis model is not fitted.")
             return self.model.predict(logits)
@@ -262,10 +264,11 @@ class MultiDimensionalUncertainty:
             for i in range(1, 2**n_measures):  # Start from 1 to skip all-zeros vector
                 binary_vector = [(i >> j) & 1 for j in range(n_measures)]
                 maximal_elements.append(np.array(binary_vector, dtype=float))
-            
-            maximal_elements_matrix = np.vstack(maximal_elements) * 2
-            uncertainty_matrix = np.vstack([uncertainty_matrix, maximal_elements_matrix])
 
+            maximal_elements_matrix = np.vstack(maximal_elements) * 2
+            uncertainty_matrix = np.vstack(
+                [uncertainty_matrix, maximal_elements_matrix]
+            )
 
         train_loader = torch.utils.data.DataLoader(
             torch.tensor(
@@ -323,7 +326,6 @@ class MultiDimensionalUncertainty:
         if self.if_add_maximal_elements:
             uncertainty_matrix = self.scaler.transform(uncertainty_matrix)
             # uncertainty_matrix = 1 / (1 + np.exp(-uncertainty_matrix))
-
 
         if isinstance(self.vqr_model, torch.nn.Module):
             uncertainty_matrix = (

@@ -206,7 +206,9 @@ def plot_uncertainty_measures(xx, yy, uncertainty_measures_dict, X_test=None):
         axes[idx].set_visible(False)
 
     # Save and display
-    plt.savefig("./resources/pics/uq_grid_visualization.pdf", bbox_inches="tight", dpi=150)
+    plt.savefig(
+        "./resources/pics/uq_grid_visualization.pdf", bbox_inches="tight", dpi=150
+    )
     plt.show()
 
 

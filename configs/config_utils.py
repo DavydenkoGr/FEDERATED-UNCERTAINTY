@@ -25,13 +25,13 @@ import ast
 # ---- MAPPINGS (edit in one place) -------------------------------------------
 
 TYPE_MAP = {
-    "risk": "RISK",          # UncertaintyType.RISK
+    "risk": "RISK",  # UncertaintyType.RISK
     "mahalanobis": "MAHALANOBIS",
     "gmm": "GMM",
 }
 
 RISK_TYPE_MAP = {
-    "bayes": "BAYES_RISK",   # RiskType.BAYES_RISK
+    "bayes": "BAYES_RISK",  # RiskType.BAYES_RISK
     "b": "BAYES_RISK",
     "total": "TOTAL_RISK",
     "tot": "TOTAL_RISK",
@@ -41,27 +41,44 @@ RISK_TYPE_MAP = {
 
 GNAME_MAP = {
     # log-score family
-    "logscore": "LOG_SCORE", "log": "LOG_SCORE", "entropy": "LOG_SCORE",
+    "logscore": "LOG_SCORE",
+    "log": "LOG_SCORE",
+    "entropy": "LOG_SCORE",
     # brier
-    "brierscore": "BRIER_SCORE", "brier": "BRIER_SCORE",
+    "brierscore": "BRIER_SCORE",
+    "brier": "BRIER_SCORE",
     # spherical
-    "spherical": "SPHERICAL_SCORE", "sph": "SPHERICAL_SCORE", "sphericalscore": "SPHERICAL_SCORE",
+    "spherical": "SPHERICAL_SCORE",
+    "sph": "SPHERICAL_SCORE",
+    "sphericalscore": "SPHERICAL_SCORE",
     # zero-one
-    "zero-one": "ZERO_ONE_SCORE", "zeroone": "ZERO_ONE_SCORE", "zo": "ZERO_ONE_SCORE", "0-1": "ZERO_ONE_SCORE",
+    "zero-one": "ZERO_ONE_SCORE",
+    "zeroone": "ZERO_ONE_SCORE",
+    "zo": "ZERO_ONE_SCORE",
+    "0-1": "ZERO_ONE_SCORE",
 }
 
 APPROX_MAP = {
-    "outer": "OUTER", "1": "OUTER",
-    "inner": "INNER", "2": "INNER",
-    "central": "CENTRAL", "3": "CENTRAL",
+    "outer": "OUTER",
+    "1": "OUTER",
+    "inner": "INNER",
+    "2": "INNER",
+    "central": "CENTRAL",
+    "3": "CENTRAL",
 }
 
 # Short tags for pretty labels
 RISK_SHORT = {"BAYES_RISK": "B", "TOTAL_RISK": "TOT", "EXCESS_RISK": "EXC"}
-G_SHORT = {"LOG_SCORE": "log", "BRIER_SCORE": "brier", "SPHERICAL_SCORE": "sph", "ZERO_ONE_SCORE": "zero one"}
+G_SHORT = {
+    "LOG_SCORE": "log",
+    "BRIER_SCORE": "brier",
+    "SPHERICAL_SCORE": "sph",
+    "ZERO_ONE_SCORE": "zero one",
+}
 APPROX_NUM = {"OUTER": 1, "INNER": 2, "CENTRAL": 3}
 
 # ---- UTILITIES --------------------------------------------------------------
+
 
 def _expand_braces(s: str) -> List[str]:
     """Expand first {...} occurrence recursively: 'a_{x,y}_b' -> ['a_x_b', 'a_y_b']"""
@@ -74,6 +91,7 @@ def _expand_braces(s: str) -> List[str]:
     for opt in options:
         out.extend(_expand_braces(s[:start] + opt + s[end:]))
     return out
+
 
 def _parse_kv(tok: str) -> Optional[Tuple[str, Any]]:
     """Parse key=value; value supports int/float/bool/str (quoted) via literal_eval fallback to raw str."""
@@ -88,8 +106,10 @@ def _parse_kv(tok: str) -> Optional[Tuple[str, Any]]:
         val = v
     return k, val
 
+
 def _need_pred_approx(risk_type_str: str) -> bool:
     return risk_type_str in ("TOTAL_RISK", "EXCESS_RISK")
+
 
 def _label_for(cfg: Dict[str, Any], *, default_T: float = 1.0) -> str:
     """Generate print_name if not provided."""
@@ -114,10 +134,13 @@ def _label_for(cfg: Dict[str, Any], *, default_T: float = 1.0) -> str:
         return "GMM score"
     return "measure"
 
+
 def _err(msg: str, *, spec: str) -> RuntimeError:
     return RuntimeError(f"[config_dsl] {msg}. In spec: '{spec}'")
 
+
 # ---- CORE PARSER ------------------------------------------------------------
+
 
 def parse_spec(
     spec: str,
@@ -143,7 +166,9 @@ def parse_spec(
 
     head = tokens.pop(0)
     if head not in TYPE_MAP:
-        raise _err(f"Unknown type '{head}'. Allowed: {sorted(TYPE_MAP.keys())}", spec=spec)
+        raise _err(
+            f"Unknown type '{head}'. Allowed: {sorted(TYPE_MAP.keys())}", spec=spec
+        )
 
     utype = TYPE_MAP[head]
 
@@ -155,14 +180,20 @@ def parse_spec(
             raise _err("Risk spec must include risk type", spec=spec)
         r_tok = tokens.pop(0)
         if r_tok not in RISK_TYPE_MAP:
-            raise _err(f"Unknown risk type '{r_tok}'. Allowed: {sorted(RISK_TYPE_MAP.keys())}", spec=spec)
+            raise _err(
+                f"Unknown risk type '{r_tok}'. Allowed: {sorted(RISK_TYPE_MAP.keys())}",
+                spec=spec,
+            )
         risk_type_str = RISK_TYPE_MAP[r_tok]
 
         if not tokens:
             raise _err("Risk spec must include scoring rule", spec=spec)
         g_tok = tokens.pop(0)
         if g_tok not in GNAME_MAP:
-            raise _err(f"Unknown scoring rule '{g_tok}'. Allowed: {sorted(GNAME_MAP.keys())}", spec=spec)
+            raise _err(
+                f"Unknown scoring rule '{g_tok}'. Allowed: {sorted(GNAME_MAP.keys())}",
+                spec=spec,
+            )
         g_name_str = GNAME_MAP[g_tok]
 
         # Approximations
@@ -170,7 +201,10 @@ def parse_spec(
             raise _err("Risk spec must include gt_approx", spec=spec)
         gt_tok = tokens.pop(0)
         if gt_tok not in APPROX_MAP:
-            raise _err(f"Unknown gt_approx '{gt_tok}'. Allowed: {sorted(APPROX_MAP.keys())}", spec=spec)
+            raise _err(
+                f"Unknown gt_approx '{gt_tok}'. Allowed: {sorted(APPROX_MAP.keys())}",
+                spec=spec,
+            )
         gt_approx_str = APPROX_MAP[gt_tok]
 
         pred_approx_str: Optional[str] = None
@@ -179,14 +213,19 @@ def parse_spec(
                 raise _err("TOTAL/EXCESS must include pred_approx", spec=spec)
             pa_tok = tokens.pop(0)
             if pa_tok not in APPROX_MAP:
-                raise _err(f"Unknown pred_approx '{pa_tok}'. Allowed: {sorted(APPROX_MAP.keys())}", spec=spec)
+                raise _err(
+                    f"Unknown pred_approx '{pa_tok}'. Allowed: {sorted(APPROX_MAP.keys())}",
+                    spec=spec,
+                )
             pred_approx_str = APPROX_MAP[pa_tok]
 
         # Collect key=value extras
         for tok in tokens:
             kv = _parse_kv(tok)
             if not kv:
-                raise _err(f"Unexpected token '{tok}'. Use key=value or remove.", spec=spec)
+                raise _err(
+                    f"Unexpected token '{tok}'. Use key=value or remove.", spec=spec
+                )
             k, v = kv
             if k == "label":
                 label_override = str(v)
@@ -230,12 +269,15 @@ def parse_spec(
 
     cfg = {
         "type": utype,
-        "print_name": label_override or _label_for({"type": utype, "kwargs": {}}, default_T=default_T),
+        "print_name": label_override
+        or _label_for({"type": utype, "kwargs": {}}, default_T=default_T),
         "kwargs": kwargs if allow_extra_kwargs else {},
     }
     return cfg
 
+
 # ---- PUBLIC API -------------------------------------------------------------
+
 
 def build_configs(
     specs: Iterable[str],
@@ -249,8 +291,13 @@ def build_configs(
     out: List[Dict[str, Any]] = []
     for s in specs:
         for expanded in _expand_braces(s):
-            out.append(parse_spec(expanded, default_T=default_T, allow_extra_kwargs=allow_extra_kwargs))
+            out.append(
+                parse_spec(
+                    expanded, default_T=default_T, allow_extra_kwargs=allow_extra_kwargs
+                )
+            )
     return out
+
 
 # Optional: a lightweight registry like you wanted
 INTERESTING_COMPOSITIONS: Dict[str, List[Dict[str, Any]]] = {}
@@ -259,15 +306,16 @@ INTERESTING_COMPOSITIONS: Dict[str, List[Dict[str, Any]]] = {}
 def _is_config(obj: Any) -> bool:
     return isinstance(obj, dict) and "type" in obj and "kwargs" in obj
 
+
 def _normalize_to_configs(
     items: Iterable[Any],
     *,
     default_T: float = 1.0,
 ) -> List[Dict[str, Any]]:
     """Left-to-right flatten:
-       - str  -> parse_spec(str)
-       - config dict -> pass through
-       - list/tuple/set -> recurse
+    - str  -> parse_spec(str)
+    - config dict -> pass through
+    - list/tuple/set -> recurse
     """
     out: List[Dict[str, Any]] = []
     for item in items:
@@ -280,6 +328,7 @@ def _normalize_to_configs(
         else:
             raise TypeError(f"Unsupported item in composition: {type(item)}")
     return out
+
 
 def register_composition(
     name: str,

@@ -1,10 +1,11 @@
 import numpy as np
 
+
 class MahalanobisWhiteningScaler:
     """
     Mahalanobis whitening (a.k.a. covariance whitening).
     Learns mean μ and (shrunk) covariance Σ, then transforms X -> (Σ^{-1/2})(X-μ).
-    
+
     Parameters
     ----------
     shrinkage : float in [0, 1], default=0.1
@@ -23,7 +24,10 @@ class MahalanobisWhiteningScaler:
     inv_sqrt_ : (d, d) array  (or (d,) when diagonal=True)  # Σ^{-1/2}
     metric_ : (d, d) array  # Σ^{-1} (or diagonal as (d,))
     """
-    def __init__(self, shrinkage: float = 0.1, diagonal: bool = False, eps: float = 1e-8):
+
+    def __init__(
+        self, shrinkage: float = 0.1, diagonal: bool = False, eps: float = 1e-8
+    ):
         self.shrinkage = float(shrinkage)
         self.diagonal = bool(diagonal)
         self.eps = float(eps)
@@ -109,20 +113,21 @@ class MahalanobisWhiteningScaler:
         return self.metric_
 
 
-
 class GlobalMinMaxScaler:
     """Simple global min-max scaler that uses global min/max across all features"""
-    
+
     def __init__(self):
         self.global_min_ = None
         self.global_max_ = None
-        
+        self.local_max_ = None
+
     def fit(self, X):
         """Fit the scaler using global min/max from the data"""
         self.global_min_ = np.min(X)
         self.global_max_ = np.max(X)
+        self.local_max_ = np.max(X, axis=0)
         return self
-        
+
     def transform(self, X):
         """Transform data using global min/max"""
         if self.global_max_ > self.global_min_:

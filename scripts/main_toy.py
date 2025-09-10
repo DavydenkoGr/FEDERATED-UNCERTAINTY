@@ -36,6 +36,7 @@ from configs.uncertainty_measures_configs import (
 )
 
 
+
 UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK
 
 seed = 1
@@ -57,12 +58,12 @@ criterion = nn.CrossEntropyLoss()
 
 
 target = OTTarget.EXP
-sampling_method = SamplingMethod.RANDOM
-scaling_type = ScalingType.FEATURE_WISE
+sampling_method = SamplingMethod.GRID
+scaling_type = ScalingType.GLOBAL
 grid_size = 5
-n_targets_multiplier = 1
+n_targets_multiplier = 2
 eps = 0.5
-max_iters = 150
+max_iters = 1000
 tol = 1e-6
 random_state = seed
 

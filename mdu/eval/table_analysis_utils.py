@@ -79,11 +79,11 @@ def prettify_measure(name: str) -> str:
 def single_row_from(df_subset: pd.DataFrame, value_col: str, row_label) -> pd.DataFrame:
     """
     Aggregate a subset into a single-row dataframe indexed by `row_label`,
-    taking the mean per 'measure_pretty'.
+    taking the mean per 'measure'.
     """
     if df_subset.empty:
         return pd.DataFrame()
-    s = df_subset.groupby("measure_pretty", sort=False)[value_col].mean()
+    s = df_subset.groupby("measure", sort=False)[value_col].mean()
     row = s.to_frame().T
     row.index = [row_label]
     return row
@@ -120,7 +120,8 @@ def build_rows_for_ind(
             )
             frames.append(
                 single_row_from(
-                    df_sub[mask_sel], selective_metric, (ind, f"{eval_ds} [selective]")
+                    df_sub[mask_sel], selective_metric, (
+                        ind, f"{eval_ds} [selective]")
                 )
             )
         else:
@@ -129,7 +130,8 @@ def build_rows_for_ind(
                 df_sub["ood_dataset"] == eval_ds
             )
             frames.append(
-                single_row_from(df_sub[mask_ood], "roc_auc", (ind, f"{eval_ds} [ood]"))
+                single_row_from(df_sub[mask_ood], "roc_auc",
+                                (ind, f"{eval_ds} [ood]"))
             )
 
     frames = [f for f in frames if not f.empty]
@@ -137,7 +139,8 @@ def build_rows_for_ind(
         return pd.DataFrame()
 
     out = pd.concat(frames, axis=0, sort=True)
-    out.index = pd.MultiIndex.from_tuples(out.index, names=["ind_dataset", "eval"])
+    out.index = pd.MultiIndex.from_tuples(
+        out.index, names=["ind_dataset", "eval"])
     return out
 
 
@@ -152,7 +155,7 @@ def sort_rows(df: pd.DataFrame) -> pd.DataFrame:
         return eval_label.split()[0]
 
     def suffix(eval_label: str) -> str:
-        return eval_label[eval_label.find("[") :] if "[" in eval_label else ""
+        return eval_label[eval_label.find("["):] if "[" in eval_label else ""
 
     order_df["_ord1"] = order_df["ind_dataset"].map(_IND_ORDER).fillna(99)
     order_df["_base"] = order_df["eval"].map(base_name)
@@ -183,11 +186,12 @@ def transform_by_tasks(
     }
     missing = required - set(df.columns)
     if missing:
-        raise KeyError(f"Input CSV is missing required columns: {sorted(missing)}")
+        raise KeyError(
+            f"Input CSV is missing required columns: {sorted(missing)}")
 
     # Prettify measure names
     df = df.copy()
-    df["measure_pretty"] = df["measure"].apply(prettify_measure)
+    df["measure"] = df["measure"].apply(prettify_measure)
 
     # Average over ensemble groups: build per-group tables then average
     groups = (
@@ -202,7 +206,8 @@ def transform_by_tasks(
     for g in groups:
         df_g = df[df["ensemble_group"].astype(str) == str(g)]
         parts = [
-            build_rows_for_ind(df_g[df_g["ind_dataset"] == ind], ind, selective_metric)
+            build_rows_for_ind(
+                df_g[df_g["ind_dataset"] == ind], ind, selective_metric)
             for ind in ("cifar10", "cifar100", "tiny_imagenet")
         ]
         tbl = pd.concat(parts, axis=0, sort=True)
@@ -219,7 +224,8 @@ def transform_by_tasks(
     aligned = [t.reindex(index=all_index, columns=all_columns) for t in tables]
 
     # Mean across groups: keep identical behavior (sum with fill_value=0 then / len)
-    avg_table = reduce(lambda a, b: a.add(b, fill_value=0), aligned) / len(aligned)
+    avg_table = reduce(lambda a, b: a.add(
+        b, fill_value=0), aligned) / len(aligned)
     avg_table = sort_rows(avg_table)
 
     if not include_std:
@@ -266,7 +272,8 @@ def select_composite_and_components(
             return low  # fallback identical to original
 
         risk_part, gt_app, pred_approx, score_part = m.groups()
-        risk_pretty = {"B": "R_b", "EXC": "R_e", "TOT": "R_t"}.get(risk_part, risk_part)
+        risk_pretty = {"B": "R_b", "EXC": "R_e",
+                       "TOT": "R_t"}.get(risk_part, risk_part)
         score_pretty = {
             "log": "Logscore",
             "brier": "Brier",
@@ -334,7 +341,8 @@ def select_composite_and_components(
     if len(matching_columns) - (1 if composite_pretty in matching_columns else 0) < len(
         prettified_names
     ):
-        missing_prettified = [n for n in prettified_names if n not in available_columns]
+        missing_prettified = [
+            n for n in prettified_names if n not in available_columns]
         missing_config = [
             component_names[prettified_names.index(n)] for n in missing_prettified
         ]
@@ -355,7 +363,8 @@ def check_composite_dominance(df: pd.DataFrame) -> pd.DataFrame:
     """
     composite_cols = [c for c in df.columns if c.startswith("composite")]
     if not composite_cols:
-        raise ValueError("No column starting with 'composite' found in DataFrame")
+        raise ValueError(
+            "No column starting with 'composite' found in DataFrame")
 
     composite_col = composite_cols[0]
     other_cols = [c for c in df.columns if not c.startswith("composite")]
@@ -392,7 +401,7 @@ def check_composite_dominance(df: pd.DataFrame) -> pd.DataFrame:
         dominance_100.append(pct >= 1.0)
         dominance_75.append(pct >= 0.75)
         dominance_50.append(pct >= 0.50)
-        
+
         # Check if composite beats the worst component
         worst_component = min(other_values)
         beats_worst.append(comp_val > worst_component)
@@ -451,7 +460,8 @@ def analyze_composite_pareto_performance(
                 c for c in composite_df.columns if not c.startswith("composite")
             ]
             if len(component_cols) < 2:
-                print(f"Not enough components for {composite_name} (need at least 2)")
+                print(
+                    f"Not enough components for {composite_name} (need at least 2)")
                 continue
 
             problems = list(composite_df.index)
@@ -518,7 +528,8 @@ def compute_average_ranks(transformed_df: pd.DataFrame) -> pd.Series:
         metric_values = row[metrics]
         valid_mask = ~pd.isna(metric_values)
         valid_metrics = metric_values[valid_mask]
-        valid_names = [metrics[i] for i in range(len(metrics)) if valid_mask.iloc[i]]
+        valid_names = [metrics[i]
+                       for i in range(len(metrics)) if valid_mask.iloc[i]]
         if len(valid_metrics) == 0:
             continue
 

@@ -16,9 +16,8 @@ from mdu.optim.train import train_ensembles
 import torch.nn as nn
 from mdu.vis.toy_plots import plot_decision_boundaries, plot_uncertainty_measures
 from mdu.unc.multidimensional_uncertainty import (
-    fit_uncertainty_estimators,
+    fit_transform_uncertainty_estimators,
     pretty_compute_all_uncertainties,
-    get_uncertainty_estimators,
 )
 from mdu.unc.entropic_ot import EntropicOTOrdering
 from mdu.eval.eval_utils import get_ensemble_predictions
@@ -36,7 +35,6 @@ from configs.uncertainty_measures_configs import (
 )
 
 
-
 UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK
 
 seed = 1
@@ -45,8 +43,7 @@ set_all_seeds(seed)
 dataset_name = DatasetName.BLOBS
 
 n_classes = 10
-device = torch.device(
-    "cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 n_members = 1
 input_dim = 2
 hidden_dim = 32
@@ -121,10 +118,8 @@ y_test_tensor = torch.tensor(y_test, dtype=torch.long, device=device)
 
 X_calib_tensor = torch.tensor(X_calib, dtype=torch.float32, device=device)
 
-X_test_logits = get_ensemble_predictions(
-    ensemble, X_test_tensor, return_logits=True)
-X_calib_logits = get_ensemble_predictions(
-    ensemble, X_calib_tensor, return_logits=True)
+X_test_logits = get_ensemble_predictions(ensemble, X_test_tensor, return_logits=True)
+X_calib_logits = get_ensemble_predictions(ensemble, X_calib_tensor, return_logits=True)
 
 for i, model in enumerate(ensemble):
     model.eval()
@@ -155,22 +150,19 @@ multi_dim_uncertainty = EntropicOTOrdering(
 
 
 ####
-# Compute individual uncertainties
-uncertainty_estimators = get_uncertainty_estimators(
-    uncertainty_configs=UNCERTAINTY_MEASURES,
+pretty_uncertainty_scores_calib, fitted_uncertainty_estimators = (
+    fit_transform_uncertainty_estimators(
+        uncertainty_configs=UNCERTAINTY_MEASURES,
+        X_calib_logits=X_calib_logits,
+        y_calib=y_calib,
+        X_test_logits=X_calib_logits,
+    )
 )
-fitted_uncertainty_estimators = fit_uncertainty_estimators(
-    uncertainty_estimators=uncertainty_estimators,
-    logits_train=X_calib_logits,
-    y_train=y_calib,
-)
-pretty_uncertainty_scores_calib = pretty_compute_all_uncertainties(
-    uncertainty_estimators=fitted_uncertainty_estimators,
-    logits_test=X_calib_logits,
-)
+
 ###
 scores_calib = np.column_stack(
-    [scores for _, scores in pretty_uncertainty_scores_calib])
+    [scores for _, scores in pretty_uncertainty_scores_calib]
+)
 
 multi_dim_uncertainty.fit(
     scores_cal=scores_calib,
@@ -178,23 +170,19 @@ multi_dim_uncertainty.fit(
 
 grid_points = np.stack([xx.ravel(), yy.ravel()], axis=-1)
 
-X_grid_logits = (
-    get_ensemble_predictions(
-        ensemble,
-        torch.from_numpy(grid_points).to(torch.float32).to(device),
-        return_logits=True,
-    )
+X_grid_logits = get_ensemble_predictions(
+    ensemble,
+    torch.from_numpy(grid_points).to(torch.float32).to(device),
+    return_logits=True,
 )
 
 pretty_uncertainty_scores_test = pretty_compute_all_uncertainties(
     uncertainty_estimators=fitted_uncertainty_estimators,
     logits_test=X_grid_logits,
 )
-scores_test = np.column_stack(
-    [scores for _, scores in pretty_uncertainty_scores_test])
+scores_test = np.column_stack([scores for _, scores in pretty_uncertainty_scores_test])
 
-uncertainty_scores, ordering_indices = multi_dim_uncertainty.predict(
-    scores_test)
+uncertainty_scores, ordering_indices = multi_dim_uncertainty.predict(scores_test)
 
 
 uncertainty_measures_dict = {k: v for k, v in pretty_uncertainty_scores_test}

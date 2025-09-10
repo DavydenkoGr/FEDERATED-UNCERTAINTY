@@ -199,3 +199,24 @@ def pretty_compute_all_uncertainties(
         for estimator, scores in zip(uncertainty_estimators, calibration_uncertainties)
     ]
     return uncertainty_tuples
+
+
+def fit_transform_uncertainty_estimators(
+    uncertainty_configs: List[Dict[str, Any]],
+    X_calib_logits: np.ndarray,
+    y_calib: np.ndarray,
+    X_test_logits: np.ndarray,
+):
+    uncertainty_estimators = get_uncertainty_estimators(
+        uncertainty_configs=uncertainty_configs,
+    )
+    fitted_uncertainty_estimators = fit_uncertainty_estimators(
+        uncertainty_estimators=uncertainty_estimators,
+        logits_train=X_calib_logits,
+        y_train=y_calib,
+    )
+    pretty_uncertainty_scores_calib = pretty_compute_all_uncertainties(
+        uncertainty_estimators=fitted_uncertainty_estimators,
+        logits_test=X_test_logits,
+    )
+    return pretty_uncertainty_scores_calib, fitted_uncertainty_estimators

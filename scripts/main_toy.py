@@ -191,6 +191,7 @@ pretty_uncertainty_scores_test = pretty_compute_all_uncertainties(
 )
 scores_test = np.column_stack(
     [scores for _, scores in pretty_uncertainty_scores_test])
+
 uncertainty_scores, ordering_indices = multi_dim_uncertainty.predict(
     scores_test)
 
@@ -201,6 +202,6 @@ uncertainty_measures_dict.update({"multidim_scores": uncertainty_scores})
 plot_uncertainty_measures(
     xx=xx,
     yy=yy,
-    uncertainty_measures_dict=uncertainty_scores,
+    uncertainty_measures_dict=uncertainty_measures_dict,
     X_test=X_test,
 )

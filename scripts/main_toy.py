@@ -44,7 +44,8 @@ set_all_seeds(seed)
 dataset_name = DatasetName.BLOBS
 
 n_classes = 10
-device = torch.device("cpu")
+device = torch.device(
+    "cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 n_members = 1
 input_dim = 2
 hidden_dim = 32
@@ -167,7 +168,7 @@ pretty_uncertainty_scores_calib = pretty_compute_all_uncertainties(
     logits_test=X_calib_logits,
 )
 ###
-scores_calib = np.vstack(
+scores_calib = np.column_stack(
     [scores for _, scores in pretty_uncertainty_scores_calib])
 
 multi_dim_uncertainty.fit(
@@ -182,22 +183,20 @@ X_grid_logits = (
         torch.from_numpy(grid_points).to(torch.float32).to(device),
         return_logits=True,
     )
-    .cpu()
-    .numpy()
 )
 
 pretty_uncertainty_scores_test = pretty_compute_all_uncertainties(
     uncertainty_estimators=fitted_uncertainty_estimators,
     logits_test=X_grid_logits,
 )
-scores_test = np.vstack(
+scores_test = np.column_stack(
     [scores for _, scores in pretty_uncertainty_scores_test])
 uncertainty_scores, ordering_indices = multi_dim_uncertainty.predict(
     scores_test)
 
 
-uncertainty_scores = {k: v for k, v in pretty_uncertainty_scores_test}
-uncertainty_scores.update({"multidim_scores": uncertainty_scores})
+uncertainty_measures_dict = {k: v for k, v in pretty_uncertainty_scores_test}
+uncertainty_measures_dict.update({"multidim_scores": uncertainty_scores})
 
 plot_uncertainty_measures(
     xx=xx,

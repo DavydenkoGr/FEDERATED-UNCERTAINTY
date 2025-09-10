@@ -1,25 +1,3 @@
-import sys
-from pathlib import Path
-
-# project root = parent of "scripts"
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-import torch
-from mdu.randomness import set_all_seeds
-import numpy as np
-from mdu.nn.load_models import get_model
-from mdu.nn.constants import ModelName
-from mdu.optim.train import train_ensembles
-import torch.nn as nn
-from mdu.vis.toy_plots import plot_decision_boundaries, plot_uncertainty_measures
-from mdu.unc.constants import VectorQuantileModel
-from mdu.unc.multidimensional_uncertainty import MultiDimensionalUncertainty
-from mdu.eval.eval_utils import get_ensemble_predictions
-from mdu.data.load_dataset import get_dataset
-from mdu.data.data_utils import split_dataset
-from mdu.data.constants import DatasetName
 from configs.uncertainty_measures_configs import (
     MAHALANOBIS_AND_BAYES_RISK,
     GMM_AND_BAYES_RISK,
@@ -29,6 +7,28 @@ from configs.uncertainty_measures_configs import (
     BAYES_DIFFERENT_INSTANTIATIONS,
     BAYES_RISK_AND_BAYES_RISK,
 )
+from mdu.data.constants import DatasetName
+from mdu.data.data_utils import split_dataset
+from mdu.data.load_dataset import get_dataset
+from mdu.eval.eval_utils import get_ensemble_predictions
+from mdu.unc.multidimensional_uncertainty import MultiDimensionalUncertainty
+from mdu.unc.constants import VectorQuantileModel
+from mdu.vis.toy_plots import plot_decision_boundaries, plot_uncertainty_measures
+import torch.nn as nn
+from mdu.optim.train import train_ensembles
+from mdu.nn.constants import ModelName
+from mdu.nn.load_models import get_model
+import numpy as np
+from mdu.randomness import set_all_seeds
+import torch
+import sys
+from pathlib import Path
+
+# project root = parent of "scripts"
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 
 UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK
 
@@ -90,8 +90,8 @@ elif MULTIDIM_MODEL == VectorQuantileModel.ENTROPIC_OT:
         "target": "exp",
         "standardize": False,
         "fit_mse_params": False,
-        "eps": 0.1,
-        "max_iters": 100,
+        "eps": 0.5,
+        "max_iters": 150,
         "tol": 1e-6,
         "random_state": seed,
     }
@@ -103,7 +103,8 @@ if dataset_name == DatasetName.BLOBS:
     # Generate n_classes centers uniformly on a circle
     radius = 8.0
     angles = np.linspace(0, 2 * np.pi, n_classes, endpoint=False)
-    centers = np.stack([radius * np.cos(angles), radius * np.sin(angles)], axis=1)
+    centers = np.stack(
+        [radius * np.cos(angles), radius * np.sin(angles)], axis=1)
 
     dataset_params = {
         "n_samples": 4000,
@@ -162,8 +163,10 @@ y_test_tensor = torch.tensor(y_test, dtype=torch.long, device=device)
 
 X_calib_tensor = torch.tensor(X_calib, dtype=torch.float32, device=device)
 
-X_test_logits = get_ensemble_predictions(ensemble, X_test_tensor, return_logits=True)
-X_calib_logits = get_ensemble_predictions(ensemble, X_calib_tensor, return_logits=True)
+X_test_logits = get_ensemble_predictions(
+    ensemble, X_test_tensor, return_logits=True)
+X_calib_logits = get_ensemble_predictions(
+    ensemble, X_calib_tensor, return_logits=True)
 
 for i, model in enumerate(ensemble):
     model.eval()
@@ -203,9 +206,11 @@ X_grid_logits = get_ensemble_predictions(
 
 print(X_grid_logits.shape)
 if MULTIDIM_MODEL == VectorQuantileModel.CPFLOW:
-    X_grid_logits = torch.from_numpy(X_grid_logits).to(torch.float32).to(device)
+    X_grid_logits = torch.from_numpy(
+        X_grid_logits).to(torch.float32).to(device)
 
-ordering_indices, uncertainty_scores = multi_dim_uncertainty.predict(X_grid_logits)
+ordering_indices, uncertainty_scores = multi_dim_uncertainty.predict(
+    X_grid_logits)
 
 print(uncertainty_scores["multidim_scores"].std())
 

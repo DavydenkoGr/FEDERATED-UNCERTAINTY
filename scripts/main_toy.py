@@ -58,7 +58,7 @@ target = OTTarget.EXP
 sampling_method = SamplingMethod.GRID
 scaling_type = ScalingType.GLOBAL
 grid_size = 5
-n_targets_multiplier = 2
+n_targets_multiplier = 1
 eps = 0.5
 max_iters = 1000
 tol = 1e-6
@@ -182,7 +182,7 @@ pretty_uncertainty_scores_test = pretty_compute_all_uncertainties(
 )
 scores_test = np.column_stack([scores for _, scores in pretty_uncertainty_scores_test])
 
-uncertainty_scores, ordering_indices = multi_dim_uncertainty.predict(scores_test)
+uncertainty_scores = multi_dim_uncertainty.predict(scores_test)
 
 
 uncertainty_measures_dict = {k: v for k, v in pretty_uncertainty_scores_test}

@@ -70,11 +70,7 @@ class EntropicOTOrdering:
     def predict(
         self,
         scores_test: np.ndarray,
-    ) -> (
-        np.ndarray
-        | Tuple[np.ndarray, np.ndarray]
-        | Tuple[np.ndarray, np.ndarray, np.ndarray]
-    ):
+    ) -> np.ndarray:
         self._check_is_fitted()
 
         X_new = np.asarray(scores_test, dtype=np.float64)
@@ -89,7 +85,7 @@ class EntropicOTOrdering:
         Uhat = W @ self.Y_  # barycentric image
         rank = np.linalg.norm(Uhat, axis=1, ord=2)
 
-        return rank, C_new
+        return rank
 
     # -------------------- internals --------------------
     def _fit_scaler(self, scores_cal: np.ndarray) -> None:

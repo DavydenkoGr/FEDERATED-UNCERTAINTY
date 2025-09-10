@@ -115,11 +115,11 @@ def main(
             )
         )
 
-        uncertainty_scores_test = pretty_compute_all_uncertainties(
+        uncertainty_scores_list_ind = pretty_compute_all_uncertainties(
             uncertainty_estimators=fitted_uncertainty_estimators,
             logits_test=X_test,
         )
-        uncertainty_scores_ood = pretty_compute_all_uncertainties(
+        uncertainty_scores_list_ood = pretty_compute_all_uncertainties(
             uncertainty_estimators=fitted_uncertainty_estimators,
             logits_test=X_ood,
         )
@@ -128,20 +128,21 @@ def main(
         scores_calib = np.column_stack(
             [scores for _, scores in uncertainty_scores_calib]
         )
-        scores_test = np.column_stack([scores for _, scores in uncertainty_scores_test])
-        scores_ood = np.column_stack([scores for _, scores in uncertainty_scores_ood])
+        scores_ind = np.column_stack([scores for _, scores in uncertainty_scores_list_ind])
+        scores_ood = np.column_stack([scores for _, scores in uncertainty_scores_list_ood])
 
         multi_dim_uncertainty.fit(
             scores_cal=scores_calib,
         )
 
-        uncertainty_scores_ind = multi_dim_uncertainty.predict(scores_test)
-        uncertainty_scores_ood = multi_dim_uncertainty.predict(scores_ood)
+        uncertainty_scores_list_ind.append(("multidim_scores", multi_dim_uncertainty.predict(scores_ind)))
+        uncertainty_scores_list_ood.append(("multidim_scores", multi_dim_uncertainty.predict(scores_ood)))
 
         # Compute ROC AUC between in-distribution (class 0) and OOD (class 1) using sklearn
-        for k in uncertainty_scores_ind.keys():
-            ind_scores = uncertainty_scores_ind[k]
-            ood_scores = uncertainty_scores_ood[k]
+        for ind_ in range(len(uncertainty_scores_list_ind)):
+            k = uncertainty_scores_list_ind[ind_][0]
+            ind_scores = uncertainty_scores_list_ind[ind_][1]
+            ood_scores = uncertainty_scores_list_ood[ind_][1]
 
             # Concatenate scores and labels
             all_scores = np.concatenate([ind_scores, ood_scores])
@@ -209,9 +210,9 @@ if __name__ == "__main__":
 
     target = OTTarget.EXP
     sampling_method = SamplingMethod.GRID
-    scaling_type = ScalingType.GLOBAL
+    scaling_type = ScalingType.FEATURE_WISE
     grid_size = 5
-    n_targets_multiplier = 1
+    n_targets_multiplier = 10
     eps = 0.5
     max_iters = 1000
     tol = 1e-6

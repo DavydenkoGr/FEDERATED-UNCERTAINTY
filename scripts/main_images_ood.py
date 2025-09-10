@@ -128,15 +128,23 @@ def main(
         scores_calib = np.column_stack(
             [scores for _, scores in uncertainty_scores_calib]
         )
-        scores_ind = np.column_stack([scores for _, scores in uncertainty_scores_list_ind])
-        scores_ood = np.column_stack([scores for _, scores in uncertainty_scores_list_ood])
+        scores_ind = np.column_stack(
+            [scores for _, scores in uncertainty_scores_list_ind]
+        )
+        scores_ood = np.column_stack(
+            [scores for _, scores in uncertainty_scores_list_ood]
+        )
 
         multi_dim_uncertainty.fit(
             scores_cal=scores_calib,
         )
 
-        uncertainty_scores_list_ind.append(("multidim_scores", multi_dim_uncertainty.predict(scores_ind)))
-        uncertainty_scores_list_ood.append(("multidim_scores", multi_dim_uncertainty.predict(scores_ood)))
+        uncertainty_scores_list_ind.append(
+            ("multidim_scores", multi_dim_uncertainty.predict(scores_ind))
+        )
+        uncertainty_scores_list_ood.append(
+            ("multidim_scores", multi_dim_uncertainty.predict(scores_ood))
+        )
 
         # Compute ROC AUC between in-distribution (class 0) and OOD (class 1) using sklearn
         for ind_ in range(len(uncertainty_scores_list_ind)):
@@ -196,6 +204,9 @@ if __name__ == "__main__":
     # UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK # + BAYES_RISK_AND_BAYES_RISK + EXCESSES_DIFFERENT_INSTANTIATIONS
     UNCERTAINTY_MEASURES = EAT_M
     print(UNCERTAINTY_MEASURES)
+    device = (
+        torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+    )
 
     ENSEMBLE_GROUPS = [
         [0, 1, 2, 3, 4],

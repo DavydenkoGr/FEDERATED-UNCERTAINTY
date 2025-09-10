@@ -51,7 +51,7 @@ class EntropicOTOrdering:
         Xz = np.asarray(scores_cal, dtype=np.float64)
         self._fit_scaler(Xz)
         Xz_transformed = self._transform_and_add_grid(Xz)
-        
+
         n, d = Xz_transformed.shape
         self.dim_ = d
 
@@ -63,8 +63,7 @@ class EntropicOTOrdering:
         a = np.full(n, 1.0 / n)
         b = np.full(m, 1.0 / m)
         C = self._cdist_sqeuclidean(Xz_transformed, self.Y_)
-        _, g = sinkhorn_potentials_pot(
-            a, b, C, self.eps, self.max_iters, self.tol)
+        _, g = sinkhorn_potentials_pot(a, b, C, self.eps, self.max_iters, self.tol)
         self.g_ = g
         return self
 
@@ -115,8 +114,7 @@ class EntropicOTOrdering:
         else:
             metric_wise_scaled_maximums = 1
         maximal_elements_grid = (
-            np.vstack(unit_grid_nodes) * self.grid_size *
-            metric_wise_scaled_maximums
+            np.vstack(unit_grid_nodes) * self.grid_size * metric_wise_scaled_maximums
         )
         stacked_transformed_scores = np.vstack(
             [scores_cal_transformed, maximal_elements_grid]
@@ -164,7 +162,6 @@ class EntropicOTOrdering:
     def _sample_target(
         self, target: str, m: int, d: int, params: Dict[str, Any]
     ) -> np.ndarray:
-
         # Generate uniform samples using the specified sampling method
         if self.sampling_method == SamplingMethod.RANDOM.value:
             U = sample_uniform_random(self.rng, m, d)
@@ -173,8 +170,7 @@ class EntropicOTOrdering:
         elif self.sampling_method == SamplingMethod.GRID.value:
             U = sample_uniform_grid(self.rng, m, d)
         else:
-            raise ValueError(
-                f"Unknown sampling method: {self.sampling_method}")
+            raise ValueError(f"Unknown sampling method: {self.sampling_method}")
 
         # Transform uniform samples to target distribution
         if target == OTTarget.BALL.value:
@@ -205,14 +201,11 @@ class EntropicOTOrdering:
             assert alpha.shape == (d,) and beta.shape == (d,), (
                 "alpha,beta must be shape (d,)"
             )
-            assert np.all(alpha > 0) and np.all(
-                beta > 0), "alpha,beta must be >0"
+            assert np.all(alpha > 0) and np.all(beta > 0), "alpha,beta must be >0"
             return transform_to_beta(U, alpha, beta)
 
         else:
-            raise ValueError(
-                f"Unknown target '{target}' Use {OTTarget.__members__}."
-            )
+            raise ValueError(f"Unknown target '{target}' Use {OTTarget.__members__}.")
 
     def _check_is_fitted(self):
         if (

@@ -1,3 +1,30 @@
+import sys
+from pathlib import Path
+
+# project root = parent of "scripts"
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from mdu.unc.constants import OTTarget, SamplingMethod, ScalingType
+import torch
+from mdu.randomness import set_all_seeds
+import numpy as np
+from mdu.nn.load_models import get_model
+from mdu.nn.constants import ModelName
+from mdu.optim.train import train_ensembles
+import torch.nn as nn
+from mdu.vis.toy_plots import plot_decision_boundaries, plot_uncertainty_measures
+from mdu.unc.multidimensional_uncertainty import (
+    fit_uncertainty_estimators,
+    pretty_compute_all_uncertainties,
+    get_uncertainty_estimators,
+)
+from mdu.unc.entropic_ot import EntropicOTOrdering
+from mdu.eval.eval_utils import get_ensemble_predictions
+from mdu.data.load_dataset import get_dataset
+from mdu.data.data_utils import split_dataset
+from mdu.data.constants import DatasetName
 from configs.uncertainty_measures_configs import (
     MAHALANOBIS_AND_BAYES_RISK,
     GMM_AND_BAYES_RISK,
@@ -7,27 +34,6 @@ from configs.uncertainty_measures_configs import (
     BAYES_DIFFERENT_INSTANTIATIONS,
     BAYES_RISK_AND_BAYES_RISK,
 )
-from mdu.data.constants import DatasetName
-from mdu.data.data_utils import split_dataset
-from mdu.data.load_dataset import get_dataset
-from mdu.eval.eval_utils import get_ensemble_predictions
-from mdu.unc.multidimensional_uncertainty import MultiDimensionalUncertainty
-from mdu.unc.constants import VectorQuantileModel
-from mdu.vis.toy_plots import plot_decision_boundaries, plot_uncertainty_measures
-import torch.nn as nn
-from mdu.optim.train import train_ensembles
-from mdu.nn.constants import ModelName
-from mdu.nn.load_models import get_model
-import numpy as np
-from mdu.randomness import set_all_seeds
-import torch
-import sys
-from pathlib import Path
-
-# project root = parent of "scripts"
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
 
 UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK
@@ -38,7 +44,7 @@ set_all_seeds(seed)
 dataset_name = DatasetName.BLOBS
 
 n_classes = 10
-device = torch.device("cuda:0")
+device = torch.device("cpu")
 n_members = 1
 input_dim = 2
 hidden_dim = 32
@@ -48,77 +54,27 @@ lambda_ = 1.0
 lr = 1e-3
 criterion = nn.CrossEntropyLoss()
 
-hidden_dim_vqm = 10
-n_epochs_vqm = 10
-lr_vqm = 1e-4
 
-# MULTIDIM_MODEL = VectorQuantileModel.CPFLOW
-# MULTIDIM_MODEL = VectorQuantileModel.OTCP
-MULTIDIM_MODEL = VectorQuantileModel.ENTROPIC_OT
-
-if MULTIDIM_MODEL == VectorQuantileModel.CPFLOW:
-    train_kwargs = {
-        "lr": lr_vqm,
-        "num_epochs": n_epochs_vqm,
-        "batch_size": batch_size,
-        "device": device,
-    }
-    multidim_params = {
-        "feature_dimension": len(UNCERTAINTY_MEASURES),
-        "hidden_dim": hidden_dim_vqm,
-        "num_hidden_layers": 10,
-        "nblocks": 4,
-        "zero_softplus": False,
-        "softplus_type": "softplus",
-        "symm_act_first": False,
-    }
-
-elif MULTIDIM_MODEL == VectorQuantileModel.OTCP:
-    train_kwargs = {
-        "batch_size": batch_size,
-        "device": device,
-    }
-    multidim_params = {
-        "positive": True,
-    }
-elif MULTIDIM_MODEL == VectorQuantileModel.ENTROPIC_OT:
-    train_kwargs = {
-        "batch_size": batch_size,
-        "device": device,
-    }
-    multidim_params = {
-        "target": "exp",
-        "standardize": False,
-        "fit_mse_params": False,
-        "eps": 0.5,
-        "max_iters": 150,
-        "tol": 1e-6,
-        "random_state": seed,
-    }
-else:
-    raise ValueError(f"Invalid multidim model: {MULTIDIM_MODEL}")
+target = OTTarget.EXP
+sampling_method = SamplingMethod.RANDOM
+scaling_type = ScalingType.FEATURE_WISE
+grid_size = 5
+n_targets_multiplier = 1
+eps = 0.5
+max_iters = 150
+tol = 1e-6
+random_state = seed
 
 
-if dataset_name == DatasetName.BLOBS:
-    # Generate n_classes centers uniformly on a circle
-    radius = 8.0
-    angles = np.linspace(0, 2 * np.pi, n_classes, endpoint=False)
-    centers = np.stack(
-        [radius * np.cos(angles), radius * np.sin(angles)], axis=1)
+radius = 8.0
+angles = np.linspace(0, 2 * np.pi, n_classes, endpoint=False)
+centers = np.stack([radius * np.cos(angles), radius * np.sin(angles)], axis=1)
 
-    dataset_params = {
-        "n_samples": 4000,
-        "cluster_std": 1.0,
-        "centers": centers,
-    }
-elif dataset_name == DatasetName.MOONS:
-    dataset_params = {
-        "n_samples": 4000,
-        "noise": 0.1,
-    }
-else:
-    raise ValueError(f"Invalid dataset: {dataset_name}")
-
+dataset_params = {
+    "n_samples": 4000,
+    "cluster_std": 1.0,
+    "centers": centers,
+}
 
 X, y = get_dataset(dataset_name, **dataset_params)
 
@@ -182,37 +138,66 @@ grid_tensor, xx, yy = plot_decision_boundaries(
     ensemble, X_test, y_test, accuracies, device, n_classes, return_grid=True
 )
 
-multi_dim_uncertainty = MultiDimensionalUncertainty(
-    UNCERTAINTY_MEASURES,
-    multidim_model=MULTIDIM_MODEL,
-    multidim_params=multidim_params,
-    if_add_maximal_elements=True,
+multi_dim_uncertainty = EntropicOTOrdering(
+    target=target,
+    sampling_method=sampling_method,
+    scaling_type=scaling_type,
+    grid_size=grid_size,
+    target_params={},
+    eps=eps,
+    n_targets_multiplier=n_targets_multiplier,
+    max_iters=max_iters,
+    random_state=random_state,
+    tol=tol,
 )
 
-multi_dim_uncertainty.fit(
+
+####
+# Compute individual uncertainties
+uncertainty_estimators = get_uncertainty_estimators(
+    uncertainty_configs=UNCERTAINTY_MEASURES,
+)
+fitted_uncertainty_estimators = fit_uncertainty_estimators(
+    uncertainty_estimators=uncertainty_estimators,
     logits_train=X_calib_logits,
     y_train=y_calib,
-    logits_calib=X_calib_logits,
-    train_kwargs=train_kwargs,
+)
+pretty_uncertainty_scores_calib = pretty_compute_all_uncertainties(
+    uncertainty_estimators=fitted_uncertainty_estimators,
+    logits_test=X_calib_logits,
+)
+###
+scores_calib = np.vstack(
+    [scores for _, scores in pretty_uncertainty_scores_calib])
+
+multi_dim_uncertainty.fit(
+    scores_cal=scores_calib,
 )
 
 grid_points = np.stack([xx.ravel(), yy.ravel()], axis=-1)
 
-X_grid_logits = get_ensemble_predictions(
-    ensemble,
-    torch.from_numpy(grid_points).to(torch.float32).to(device),
-    return_logits=True,
+X_grid_logits = (
+    get_ensemble_predictions(
+        ensemble,
+        torch.from_numpy(grid_points).to(torch.float32).to(device),
+        return_logits=True,
+    )
+    .cpu()
+    .numpy()
 )
 
-print(X_grid_logits.shape)
-if MULTIDIM_MODEL == VectorQuantileModel.CPFLOW:
-    X_grid_logits = torch.from_numpy(
-        X_grid_logits).to(torch.float32).to(device)
+pretty_uncertainty_scores_test = pretty_compute_all_uncertainties(
+    uncertainty_estimators=fitted_uncertainty_estimators,
+    logits_test=X_grid_logits,
+)
+scores_test = np.vstack(
+    [scores for _, scores in pretty_uncertainty_scores_test])
+uncertainty_scores, ordering_indices = multi_dim_uncertainty.predict(
+    scores_test)
 
-ordering_indices, uncertainty_scores = multi_dim_uncertainty.predict(
-    X_grid_logits)
 
-print(uncertainty_scores["multidim_scores"].std())
+uncertainty_scores = {k: v for k, v in pretty_uncertainty_scores_test}
+uncertainty_scores.update({"multidim_scores": uncertainty_scores})
 
 plot_uncertainty_measures(
     xx=xx,

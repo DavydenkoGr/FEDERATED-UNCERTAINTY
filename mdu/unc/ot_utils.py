@@ -70,15 +70,13 @@ def sample_uniform_grid(rng: np.random.Generator, m: int, d: int) -> np.ndarray:
         elif len(grid_points) < m:
             # If we need more points, add some random ones
             additional_needed = m - len(grid_points)
-            additional_points = rng.random(
-                (additional_needed, d)) * 0.98 + 0.01
+            additional_points = rng.random((additional_needed, d)) * 0.98 + 0.01
             return np.vstack([grid_points, additional_points])
         else:
             return grid_points
     else:
         # Higher dimensions: use Latin Hypercube Sampling
-        sampler = qmc.LatinHypercube(
-            d, scramble=True, seed=rng.integers(0, 2**31))
+        sampler = qmc.LatinHypercube(d, scramble=True, seed=rng.integers(0, 2**31))
         samples = sampler.random(m)
         # Scale to avoid boundary issues
         return samples * 0.98 + 0.01

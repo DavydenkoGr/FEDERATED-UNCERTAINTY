@@ -41,7 +41,8 @@ def plot_decision_boundaries(
     h = 0.02  # step size in the mesh
     x_min, x_max = X_test[:, 0].min() - 1, X_test[:, 0].max() + 1
     y_min, y_max = X_test[:, 1].min() - 1, X_test[:, 1].max() + 1
-    xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
+    xx, yy = np.meshgrid(np.arange(x_min, x_max, h),
+                         np.arange(y_min, y_max, h))
     grid = np.c_[xx.ravel(), yy.ravel()]
     grid_tensor = torch.tensor(grid, dtype=torch.float32, device=device)
 
@@ -112,8 +113,6 @@ def plot_decision_boundaries(
     os.makedirs("./resources/pics", exist_ok=True)
     plt.savefig(f"./resources/pics/{name}.pdf", bbox_inches="tight")
 
-    plt.show()
-
     if return_grid:
         return grid_tensor, xx, yy
 
@@ -145,7 +144,8 @@ def plot_uncertainty_measures(xx, yy, uncertainty_measures_dict, X_test=None):
 
     # Create subplots
     fig, axes = plt.subplots(
-        n_rows, n_cols, figsize=(fig_width, fig_height), constrained_layout=True
+        n_rows, n_cols, figsize=(
+            fig_width, fig_height), constrained_layout=True
     )
 
     # Handle case where we have only one row or one plot
@@ -209,12 +209,12 @@ def plot_uncertainty_measures(xx, yy, uncertainty_measures_dict, X_test=None):
     plt.savefig(
         "./resources/pics/uq_grid_visualization.pdf", bbox_inches="tight", dpi=150
     )
-    plt.show()
 
 
 def plot_data_and_test_point(X_test, y_test, test_point):
     plt.figure(figsize=(10, 8))
-    plt.scatter(X_test[:, 0], X_test[:, 1], c=y_test, cmap="viridis", alpha=0.6, s=50)
+    plt.scatter(X_test[:, 0], X_test[:, 1], c=y_test,
+                cmap="viridis", alpha=0.6, s=50)
     plt.scatter(
         test_point[0],
         test_point[1],
@@ -232,4 +232,3 @@ def plot_data_and_test_point(X_test, y_test, test_point):
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.savefig("./resources/pics/2d_test_point.pdf", bbox_inches="tight")
-    plt.show()

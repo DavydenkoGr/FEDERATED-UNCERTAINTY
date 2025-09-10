@@ -10,7 +10,7 @@ from mdu.unc.ot_utils import (
     transform_to_ball,
     sinkhorn_potentials_pot,
     transform_to_beta,
-    generate_unit_hypercube_grid_nodes
+    generate_unit_hypercube_grid_nodes,
 )
 from mdu.data.scalers import GlobalMinMaxScaler
 from sklearn.preprocessing import MinMaxScaler
@@ -107,13 +107,13 @@ class EntropicOTOrdering:
         unit_grid_nodes = generate_unit_hypercube_grid_nodes(n_measures)
 
         if self.scaling_type == ScalingType.GLOBAL.value:
-            metric_wise_scaled_maximums = self.scaler.local_max_ / self.scaler.global_max_
+            metric_wise_scaled_maximums = (
+                self.scaler.local_max_ / self.scaler.global_max_
+            )
         else:
             metric_wise_scaled_maximums = 1
         maximal_elements_grid = (
-            np.vstack(unit_grid_nodes)
-            * self.grid_size
-            * metric_wise_scaled_maximums
+            np.vstack(unit_grid_nodes) * self.grid_size * metric_wise_scaled_maximums
         )
         stacked_transformed_scores = np.vstack(
             [scores_cal_transformed, maximal_elements_grid]
@@ -211,5 +211,10 @@ class EntropicOTOrdering:
             )
 
     def _check_is_fitted(self):
-        if self.scaler is None or self.Y_ is None or self.g_ is None or self.dim_ is None:
+        if (
+            self.scaler is None
+            or self.Y_ is None
+            or self.g_ is None
+            or self.dim_ is None
+        ):
             raise RuntimeError("Call fit(X) before predict().")

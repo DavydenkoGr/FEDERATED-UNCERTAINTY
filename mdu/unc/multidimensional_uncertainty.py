@@ -1,15 +1,10 @@
 from typing import List, Dict, Any, Optional, Sequence
 import numpy as np
-from mdu.vqr.otcp.functions import OTCPOrdering
-from mdu.vqr.cpflow.core_flow import CPFlowOrdering
-from mdu.vqr.entropic_ot.entropic_ot import EntropicOTOrdering
-from mdu.unc.constants import UncertaintyType, VectorQuantileModel
 from mdu.unc.risk_metrics.create_specific_risks import get_risk_approximation
 from mdu.unc.risk_metrics.constants import RiskType
 from mdu.unc.general_metrics.mahalanobis import MahalanobisDistance
 from mdu.unc.general_metrics.gmm import GMM
-import torch
-from sklearn.preprocessing import MinMaxScaler
+from mdu.unc.constants import UncertaintyType
 
 
 class UncertaintyEstimator:
@@ -161,220 +156,46 @@ class UncertaintyEstimator:
             )
 
 
-class MultiDimensionalUncertainty:
-    """
-    Ensemble uncertainty estimator that combines multiple uncertainty measures using Optimal Transport.
-
-    This class follows the scikit-learn interface pattern with fit and predict methods.
-    It manages multiple UncertaintyEstimator instances and uses Optimal Transport to learn
-    a mapping from the combined uncertainty space to a reference distribution.
-    """
-
-    def __init__(
-        self,
-        uncertainty_configs: List[Dict[str, Any]],
-        multidim_model: VectorQuantileModel,
-        multidim_params: Dict[str, Any],
-        if_add_maximal_elements: bool = False,
-    ):
-        """
-        Initialize the ensemble with a list of uncertainty measure configurations.
-
-        Args:
-            uncertainty_configs: List of dictionaries, each containing configuration
-                               for one UncertaintyEstimator (type and kwargs)
-
-        Example:
-            configs = [
-                {"type": UncertaintyType.MAHALANOBIS, "kwargs": {}},
-                {"type": UncertaintyType.RISK, "kwargs": {...}}
-            ]
-            ensemble = UncertaintyEnsemble(configs)
-        """
-        self.uncertainty_configs = uncertainty_configs
-        self.if_add_maximal_elements = if_add_maximal_elements
-        # Initialize individual uncertainty estimators
-        self.uncertainty_estimators = []
-        for config in uncertainty_configs:
-            estimator = UncertaintyEstimator(
-                config["type"],
-                print_name=config.get("print_name", None),
-                **config["kwargs"],
-            )
-            self.uncertainty_estimators.append(estimator)
-
-        # Optimal Transport scorer for combining uncertainty measures
-        if multidim_model == VectorQuantileModel.OTCP:
-            self.vqr_model = OTCPOrdering(**multidim_params)
-        elif multidim_model == VectorQuantileModel.CPFLOW:
-            self.vqr_model = CPFlowOrdering(**multidim_params)
-        elif multidim_model == VectorQuantileModel.ENTROPIC_OT:
-            self.vqr_model = EntropicOTOrdering(**multidim_params)
-        else:
-            raise ValueError(f"Unknown vector quantile model: {multidim_model}")
-
-        # Track fitting state
-        self.is_fitted = False
-
-        # Store estimator names for debugging/interpretation
-        self.estimator_names = [est.name for est in self.uncertainty_estimators]
-        self.estimator_print_names = [
-            est.print_name for est in self.uncertainty_estimators
-        ]
-
-    def fit(
-        self,
-        logits_train: np.ndarray,
-        y_train: np.ndarray,
-        logits_calib: np.ndarray,
-        train_kwargs: Optional[Dict[str, Any]] = None,
-    ):
-        """
-        Fit the uncertainty ensemble.
-
-        This method:
-        1. Fits each individual uncertainty estimator using logits_train
-        2. Computes uncertainty measures on logits_calib for each estimator
-        3. Stacks the results and fits the Optimal Transport mapping
-
-        Args:
-            logits_train: Training data for fitting uncertainty estimators (e.g., logits)
-            logits_calib: Calibration data for fitting the Optimal Transport mapping
-
-        Returns:
-            self
-        """
-        # Step 1: Fit each uncertainty estimator
-        for estimator in self.uncertainty_estimators:
-            estimator.fit(logits_train, y_train)
-
-        # Step 2: Compute uncertainty measures on calibration data
-        calibration_uncertainties = self._compute_all_uncertainties(logits_calib)
-
-        uncertainty_matrix = np.column_stack(calibration_uncertainties)
-
-        if self.if_add_maximal_elements:
-            self.scaler = MinMaxScaler()
-            self.scaler.fit(uncertainty_matrix)
-            uncertainty_matrix = self.scaler.transform(uncertainty_matrix)
-            # uncertainty_matrix = 1 / (1 + np.exp(-uncertainty_matrix))
-            # Add maximal elements: all possible binary vectors {0,1}^d
-            n_measures = len(calibration_uncertainties)
-            maximal_elements = []
-            for i in range(1, 2**n_measures):  # Start from 1 to skip all-zeros vector
-                binary_vector = [(i >> j) & 1 for j in range(n_measures)]
-                maximal_elements.append(np.array(binary_vector, dtype=float))
-
-            maximal_elements_matrix = np.vstack(maximal_elements) * 2
-            uncertainty_matrix = np.vstack(
-                [uncertainty_matrix, maximal_elements_matrix]
-            )
-
-        train_loader = torch.utils.data.DataLoader(
-            torch.tensor(
-                uncertainty_matrix,
-                dtype=torch.float32,
-                device=train_kwargs.get("device", "cpu"),
-            ),
-            batch_size=train_kwargs.get("batch_size", 128),
-            shuffle=True,
-        )
-
-        # Step 4: Fit VQR on the combined uncertainty measures
-        if isinstance(self.vqr_model, torch.nn.Module):
-            self.vqr_model = self.vqr_model.to(train_kwargs.get("device", "cpu"))
-
-        self.vqr_model.fit(train_loader, train_kwargs)
-
-        self.is_fitted = True
-        return self
-
-    def predict(
-        self, logits_test: torch.Tensor | np.ndarray
-    ) -> tuple[np.ndarray, dict[str, np.ndarray]]:
-        """
-        Predict uncertainty scores using the fitted ensemble.
-
-        This method:
-        1. Computes uncertainty measures for each estimator on logits_test
-        2. Applies the fitted Optimal Transport mapping to get final scores
-
-        Args:
-            logits_test: Test data for computing uncertainty scores
-
-        Returns:
-            tuple: (ordering_indices, uncertainty_scores)
-                - ordering_indices: Indices that sort test data by uncertainty (ascending)
-                - uncertainty_scores: Dict mapping uncertainty measure names to their scores,
-                                    including 'multidim_scores' for the OT-combined scores
-        """
-        if not self.is_fitted:
-            raise RuntimeError(
-                "UncertaintyEnsemble must be fitted before calling predict."
-            )
-
-        # Step 1: Compute uncertainty measures for each estimator
-        if isinstance(logits_test, torch.Tensor):
-            device = logits_test.device
-            logits_test = logits_test.cpu().numpy()
-
-        test_uncertainties = self._compute_all_uncertainties(logits_test)
-
-        # Step 2: Stack uncertainties into a matrix (n_samples, n_measures)
-        uncertainty_matrix = np.column_stack(test_uncertainties)
-
-        if self.if_add_maximal_elements:
-            uncertainty_matrix = self.scaler.transform(uncertainty_matrix)
-            # uncertainty_matrix = 1 / (1 + np.exp(-uncertainty_matrix))
-
-        if isinstance(self.vqr_model, torch.nn.Module):
-            uncertainty_matrix = (
-                torch.from_numpy(uncertainty_matrix).to(torch.float32).to(device)
-            )
-
-        # Step 3: Apply VQR
-        grid_l2_norms, ordering_indices = self.vqr_model.predict(uncertainty_matrix)
-
-        # Step 4: Create dictionary mapping uncertainty measure names to their scores
-        uncertainty_scores = {}
-        for name, print_name, scores in zip(
-            self.estimator_names, self.estimator_print_names, test_uncertainties
-        ):
-            if print_name is None:
-                uncertainty_scores[name] = scores
-            else:
-                uncertainty_scores[print_name] = scores
-
-        # Add OT scores to the dictionary
-        uncertainty_scores["multidim_scores"] = grid_l2_norms
-
-        return ordering_indices, uncertainty_scores
-
-    @property
-    def n_uncertainty_measures(self) -> int:
-        """Number of uncertainty measures in the ensemble."""
-        return len(self.uncertainty_estimators)
-
-    def __repr__(self) -> str:
-        estimator_info = ", ".join(self.estimator_names)
-        return f"UncertaintyEnsemble(n_measures={self.n_uncertainty_measures}, measures=[{estimator_info}])"
-
-    def _compute_all_uncertainties(self, logits: np.ndarray) -> List[np.ndarray]:
-        """
-        Compute uncertainty measures for all estimators on the given data.
-
-        Args:
-            logits: Input data for uncertainty computation
-
-        Returns:
-            List of uncertainty scores from each estimator
-        """
-
-        return compute_all_uncertainties(self.uncertainty_estimators, logits)
-
-
 def compute_all_uncertainties(
     estimators: Sequence[UncertaintyEstimator], logits: np.ndarray
 ) -> list[np.ndarray]:
     """Return [est.predict(logits) for each estimator]."""
     return [est.predict(logits) for est in estimators]
+
+
+def get_uncertainty_estimators(
+    uncertainty_configs: List[Dict[str, Any]],
+) -> List[UncertaintyEstimator]:
+    uncertainty_estimators = []
+    for config in uncertainty_configs:
+        estimator = UncertaintyEstimator(
+            config["type"],
+            print_name=config.get("print_name", None),
+            **config["kwargs"],
+        )
+        uncertainty_estimators.append(estimator)
+    return uncertainty_estimators
+
+
+def fit_uncertainty_estimators(
+    uncertainty_estimators: List[UncertaintyEstimator],
+    logits_train: np.ndarray,
+    y_train: np.ndarray,
+) -> List[UncertaintyEstimator]:
+    for estimator in uncertainty_estimators:
+        estimator.fit(logits_train, y_train)
+    return uncertainty_estimators
+
+
+def pretty_compute_all_uncertainties(
+    uncertainty_estimators: List[UncertaintyEstimator],
+    logits_test: np.ndarray,
+) -> list[tuple[str, np.ndarray]]:
+    calibration_uncertainties = compute_all_uncertainties(
+        uncertainty_estimators, logits_test
+    )
+    uncertainty_tuples = [
+        (estimator.print_name, scores)
+        for estimator, scores in zip(uncertainty_estimators, calibration_uncertainties)
+    ]
+    return uncertainty_tuples

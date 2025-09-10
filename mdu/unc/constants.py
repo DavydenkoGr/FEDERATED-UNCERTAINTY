@@ -18,6 +18,7 @@ class SamplingMethod(Enum):
     SOBOL = "Sobol"
     GRID = "Grid"
 
+
 class ScalingType(Enum):
     GLOBAL = "Global"
     FEATURE_WISE = "FeatureWise"

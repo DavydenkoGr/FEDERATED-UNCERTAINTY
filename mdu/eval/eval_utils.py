@@ -14,7 +14,7 @@ from sklearn.metrics import (
 )
 from mdu.data.data_utils import split_dataset_indices
 from mdu.unc.entropic_ot import EntropicOTOrdering
-from mdu.unc.constants import ScalingType
+from mdu.unc.constants import ScalingType, OTTarget, SamplingMethod
 
 
 def load_pickle(file_path: str) -> Any:
@@ -292,13 +292,13 @@ def create_output_filename(base_filename, args):
     entropic_params.append(f"iters_{args.entropic_max_iters}")
     entropic_params.append(f"tol_{args.entropic_tol}")
     entropic_params.append(f"rs_{args.entropic_random_state}")
-    entropic_params.append(f"grid_size_{args.grid_size}")
+    entropic_params.append(f"grid_size_{args.entropic_grid_size}")
     entropic_params.append(f"n_targets_multiplier_{args.entropic_n_targets_multiplier}")
 
     # Add scaler information
-    if args.scaler_type == "global":
+    if args.entropic_scaling_type == "global":
         entropic_params.append("global_scaler")
-    elif args.scaler_type == "mahalanobis":
+    elif args.entropic_scaling_type == "mahalanobis":
         entropic_params.append("mahalanobis")
     # feature_wise is default, no need to add to filename
 
@@ -591,9 +591,9 @@ def process_multidimensional_composition(
 
             # Fit EntropicOTOrdering on calibration data
             model = EntropicOTOrdering(
-                target=args.entropic_target,
-                sampling_method=args.entropic_sampling_method,
-                scaling_type=args.entropic_scaling_type,
+                target=OTTarget(args.entropic_target),
+                sampling_method=SamplingMethod(args.entropic_sampling_method),
+                scaling_type=ScalingType(args.entropic_scaling_type),
                 grid_size=args.entropic_grid_size,
                 target_params={},
                 eps=args.entropic_eps,

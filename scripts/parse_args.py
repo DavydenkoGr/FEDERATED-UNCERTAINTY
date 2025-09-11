@@ -20,7 +20,7 @@ def get_args():
     parser.add_argument(
         "--output_file",
         type=str,
-        default="./full_evaluation_results.csv",
+        default="./resources/refactored/results.csv",
         help="Output CSV file path",
     )
     parser.add_argument("--verbose", action="store_true", help="Verbose output")
@@ -29,8 +29,9 @@ def get_args():
     parser.add_argument(
         "--entropic_target",
         type=str,
-        default="exp",
-        help="EntropicOT target function (default: exp)",
+        default="Exp",
+        choices=["Exp", "Beta", "Ball"],
+        help="EntropicOT target function (default: Exp)",
     )
     parser.add_argument(
         "--entropic_eps",

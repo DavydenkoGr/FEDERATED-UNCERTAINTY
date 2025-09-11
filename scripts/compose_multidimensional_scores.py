@@ -17,14 +17,6 @@ from sklearn.metrics import roc_auc_score
 from mdu.vqr.entropic_ot.entropic_ot import EntropicOTOrdering
 import torch
 from tqdm.auto import tqdm
-import warnings
-
-warnings.filterwarnings(
-    "ignore",
-    message=r"Sinkhorn did not converge\.",
-    category=UserWarning,
-    module=r"ot\.bregman\._sinkhorn",
-)
 
 
 def find_measures(results_root: str | Path, ind: str, ood: str) -> dict[str, Path]:

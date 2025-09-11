@@ -15,15 +15,6 @@ import pandas as pd
 from itertools import product
 from tqdm import tqdm
 from scripts.parse_args import get_args
-import warnings
-
-warnings.filterwarnings("ignore")
-warnings.filterwarnings(
-    "ignore",
-    message=r"Sinkhorn did not converge\.",
-    category=UserWarning,
-    module=r"ot\.bregman\._sinkhorn",
-)
 
 from configs.interesting_compositions import INTERESTING_COMPOSITIONS
 from mdu.eval.eval_utils import (

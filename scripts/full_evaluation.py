@@ -74,7 +74,6 @@ def main():
     args = get_args()
     results = []
 
-    # Load predictions for all ind_datasets once
     print("Loading predictions for all datasets...")
     prediction_data = {}
     for ind_dataset in datasets_ind:
@@ -83,9 +82,7 @@ def main():
                 ind_dataset, weights_root=args.weights_root
             )
             prediction_data[ind_dataset] = pred_data
-            if args.verbose:
-                # print(f"✓ Loaded predictions for {ind_dataset.value}")
-                pass
+
         except Exception as e:
             print(f"✗ Failed to load predictions for {ind_dataset.value}: {e}")
             prediction_data[ind_dataset] = None

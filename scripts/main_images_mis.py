@@ -17,7 +17,7 @@ import pandas as pd
 from mdu.unc.constants import OTTarget, SamplingMethod, ScalingType
 from mdu.unc.entropic_ot import EntropicOTOrdering
 from mdu.unc.multidimensional_uncertainty import (
-    fit_transform_uncertainty_estimators,
+    fit_and_apply_uncertainty_estimators,
     pretty_compute_all_uncertainties,
 )
 from configs.uncertainty_measures_configs import (
@@ -97,7 +97,7 @@ def main(
         )
 
         uncertainty_scores_calib, fitted_uncertainty_estimators = (
-            fit_transform_uncertainty_estimators(
+            fit_and_apply_uncertainty_estimators(
                 uncertainty_configs=UNCERTAINTY_MEASURES,
                 X_calib_logits=X_train_cond,
                 y_calib=y_train_cond,
@@ -203,7 +203,7 @@ if __name__ == "__main__":
     sampling_method = SamplingMethod.GRID
     scaling_type = ScalingType.FEATURE_WISE
     grid_size = 5
-    n_targets_multiplier = 10
+    n_targets_multiplier = 1
     eps = 0.5
     max_iters = 1000
     tol = 1e-6

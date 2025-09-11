@@ -201,7 +201,7 @@ def pretty_compute_all_uncertainties(
     return uncertainty_tuples
 
 
-def fit_transform_uncertainty_estimators(
+def fit_and_apply_uncertainty_estimators(
     uncertainty_configs: List[Dict[str, Any]],
     X_calib_logits: np.ndarray,
     y_calib: np.ndarray,

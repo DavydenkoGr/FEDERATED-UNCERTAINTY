@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from collections import defaultdict
+from mdu.unc.constants import ScalingType, OTTarget
 
 sys.path.insert(0, "../")
 
@@ -27,13 +28,16 @@ pd.set_option("display.width", None)
 pd.set_option("display.max_colwidth", None)
 
 
+HYPERPARAM_COLS = ['eps', 'grid_size', 'n_targets_multiplier', 'scaling_type', 'target']
+
+
 
 def parse_hyperparameters_from_filename(filename: str) -> Dict[str, Union[str, float]]:
     """
     Parse hyperparameters from CSV filename.
     
     Args:
-        filename: CSV filename like 'benchmark_entropic_target_exp_eps_2.0_iters_150_tol_1e-06_rs_42_grid_size_2_n_targets_multiplier_1_global_scaler.csv'
+        filename: CSV filename
     
     Returns:
         Dictionary with parsed hyperparameters
@@ -71,17 +75,13 @@ def parse_hyperparameters_from_filename(filename: str) -> Dict[str, Union[str, f
         hyperparams['n_targets_multiplier'] = int(targets_match.group(1))
     
     # Extract target parameter (exp or beta)
-    target_match = re.search(r'target_(exp|beta)', filename)
+    target_match = re.search(rf'target_({OTTarget.EXP.value}|{OTTarget.BETA.value}|{OTTarget.BALL.value})', filename)
     if target_match:
         hyperparams['target'] = target_match.group(1)
     
-    # Check for global_scaler
-    if 'global_scaler' in filename:
-        hyperparams['scaler_type'] = 'global_scaler'
-    elif 'mahalanobis' in filename:
-        hyperparams['scaler_type'] = 'mahalanobis'
-    else:
-        hyperparams['scaler_type'] = 'none'
+    target_match = re.search(rf'scaling_type_({ScalingType.GLOBAL.value}|{ScalingType.FEATURE_WISE.value})', filename)
+    if target_match:
+        hyperparams['scaling_type'] = target_match.group(1)
     
     # Extract base experiment type
     if 'per_comp_scaled_benchmark' in filename:
@@ -174,7 +174,7 @@ def analyze_hyperparameter_effects_general(
     
     # Get unique hyperparameter combinations
     hyperparam_cols = [col for col in combined_df.columns 
-                      if col in ['eps', 'grid_size', 'n_targets_multiplier', 'scaler_type', 'target']]
+                      if col in HYPERPARAM_COLS]
     
     # Group by hyperparameter combinations
     grouped = combined_df.groupby(hyperparam_cols)
@@ -280,7 +280,7 @@ def compare_hyperparameters_by_metric(
         
         # Get hyperparameter columns (exclude metric columns)
         hyperparam_cols = [col for col in results_df.columns 
-                          if col in ['eps', 'grid_size', 'n_targets_multiplier', 'scaler_type', 'target']]
+                          if col in HYPERPARAM_COLS]
         
         for _, row in results_df.iterrows():
             param_combo = tuple(row[col] for col in hyperparam_cols)
@@ -337,7 +337,7 @@ def analyze_hyperparameter_effects_per_dataset(
     
     # Get hyperparameter columns
     hyperparam_cols = [col for col in combined_df.columns 
-                      if col in ['eps', 'grid_size', 'n_targets_multiplier', 'scaler_type', 'target']]
+                      if col in HYPERPARAM_COLS]
     
     for dataset in datasets:
         dataset_df = combined_df[combined_df['ind_dataset'] == dataset]
@@ -444,7 +444,7 @@ def summarize_per_dataset_effects(
             
             # Get hyperparameter columns
             hyperparam_cols = [col for col in results_df.columns 
-                              if col in ['eps', 'grid_size', 'n_targets_multiplier', 'scaler_type', 'target']]
+                              if col in HYPERPARAM_COLS]
             
             for _, row in results_df.iterrows():
                 param_str = ", ".join([f"{col}={row[col]}" for col in hyperparam_cols])
@@ -663,7 +663,7 @@ def create_hyperparameter_summary_table(
     for composite_name, results_df in analysis_results.items():
         # Get hyperparameter columns
         hyperparam_cols = [col for col in results_df.columns 
-                          if col in ['eps', 'grid_size', 'n_targets_multiplier', 'scaler_type', 'target']]
+                          if col in HYPERPARAM_COLS]
         
         for _, row in results_df.iterrows():
             param_str = ", ".join([f"{col}={row[col]}" for col in hyperparam_cols])
@@ -709,7 +709,7 @@ def analyze_individual_component_performance(
     """
     # Get a sample hyperparameter combination (since individual metrics don't depend on hyperparams)
     hyperparam_cols = [col for col in combined_df.columns 
-                      if col in ['eps', 'grid_size', 'n_targets_multiplier', 'scaler_type', 'target']]
+                      if col in HYPERPARAM_COLS]
     
     if hyperparam_cols:
         first_combo = combined_df.groupby(hyperparam_cols).first().index[0]

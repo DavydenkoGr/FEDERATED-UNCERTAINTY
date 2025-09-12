@@ -289,6 +289,7 @@ def create_output_filename(base_filename, args):
     entropic_params = []
     entropic_params.append(f"target_{args.entropic_target}")
     entropic_params.append(f"eps_{args.entropic_eps}")
+    entropic_params.append(f"scaling_type_{args.entropic_scaling_type}")
     entropic_params.append(f"iters_{args.entropic_max_iters}")
     entropic_params.append(f"tol_{args.entropic_tol}")
     entropic_params.append(f"rs_{args.entropic_random_state}")

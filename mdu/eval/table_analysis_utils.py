@@ -230,7 +230,10 @@ def transform_by_tasks(
 
     stacked = np.stack([t.values for t in aligned], axis=0)
     std_values = np.std(stacked, axis=0, ddof=1 if len(aligned) > 1 else 0)
-    std_table = pd.DataFrame(std_values, index=all_index, columns=all_columns)
+    std_table = pd.DataFrame(
+        std_values, index=pd.MultiIndex.from_tuples(all_index), columns=all_columns
+    )
+    std_table.index.names = ["ind_dataset", "eval"]
     std_table = sort_rows(std_table)
     return avg_table, std_table
 

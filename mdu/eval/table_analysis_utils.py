@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import pandas as pd
 from functools import reduce
 from typing import Dict, Iterable, List, Sequence, Tuple
+
+import pandas as pd
 
 # ---- Pretty-name mappings (kept identical semantics) ---------------------------------
 
@@ -79,11 +80,11 @@ def prettify_measure(name: str) -> str:
 def single_row_from(df_subset: pd.DataFrame, value_col: str, row_label) -> pd.DataFrame:
     """
     Aggregate a subset into a single-row dataframe indexed by `row_label`,
-    taking the mean per 'measure_pretty'.
+    taking the mean per 'measure'.
     """
     if df_subset.empty:
         return pd.DataFrame()
-    s = df_subset.groupby("measure_pretty", sort=False)[value_col].mean()
+    s = df_subset.groupby("measure", sort=False)[value_col].mean()
     row = s.to_frame().T
     row.index = [row_label]
     return row
@@ -187,7 +188,7 @@ def transform_by_tasks(
 
     # Prettify measure names
     df = df.copy()
-    df["measure_pretty"] = df["measure"].apply(prettify_measure)
+    df["measure"] = df["measure"].apply(prettify_measure)
 
     # Average over ensemble groups: build per-group tables then average
     groups = (
@@ -230,7 +231,10 @@ def transform_by_tasks(
 
     stacked = np.stack([t.values for t in aligned], axis=0)
     std_values = np.std(stacked, axis=0, ddof=1 if len(aligned) > 1 else 0)
-    std_table = pd.DataFrame(std_values, index=all_index, columns=all_columns)
+    std_table = pd.DataFrame(
+        std_values, index=pd.MultiIndex.from_tuples(all_index), columns=all_columns
+    )
+    std_table.index.names = ["ind_dataset", "eval"]
     std_table = sort_rows(std_table)
     return avg_table, std_table
 
@@ -392,7 +396,7 @@ def check_composite_dominance(df: pd.DataFrame) -> pd.DataFrame:
         dominance_100.append(pct >= 1.0)
         dominance_75.append(pct >= 0.75)
         dominance_50.append(pct >= 0.50)
-        
+
         # Check if composite beats the worst component
         worst_component = min(other_values)
         beats_worst.append(comp_val > worst_component)
@@ -421,17 +425,61 @@ def pareto_front(points: Sequence[Tuple[float, float]]) -> List[int]:
     return pareto
 
 
+def pareto_depth(points: Sequence[Tuple[float, float]]) -> List[int]:
+    """
+    Calculate Pareto depth for each point in 2D space.
+
+    Returns a list where depth[i] is the Pareto depth of points[i].
+    Depth 0 = on Pareto front, depth 1 = dominated only by Pareto front points, etc.
+    """
+    n = len(points)
+    if n == 0:
+        return []
+
+    depths = [-1] * n  # -1 means not yet assigned
+    remaining_indices = list(range(n))
+    current_depth = 0
+
+    while remaining_indices:
+        # Find Pareto front among remaining points
+        remaining_points = [points[i] for i in remaining_indices]
+        front_indices_in_remaining = pareto_front(remaining_points)
+
+        # Map back to original indices and assign current depth
+        for idx_in_remaining in front_indices_in_remaining:
+            original_idx = remaining_indices[idx_in_remaining]
+            depths[original_idx] = current_depth
+
+        # Remove points that were assigned a depth
+        remaining_indices = [
+            idx
+            for i, idx in enumerate(remaining_indices)
+            if i not in front_indices_in_remaining
+        ]
+        current_depth += 1
+
+    return depths
+
+
 def analyze_composite_pareto_performance(
-    transformed_df: pd.DataFrame, composite_names: Dict[str, object]
-) -> Dict[str, Dict[str, float]]:
+    transformed_df: pd.DataFrame,
+    composite_names: Dict[str, object],
+    do_for_each_measure: bool = False,
+) -> Dict[str, Dict[str, object]]:
     """
     For each composite, count how often it lies on the Pareto front
     of its components across all pairs of problems. Returns stats dict.
+
+    When do_for_each_measure=True, also calculates Pareto stats for each individual component.
     """
     import itertools
+    from typing import Union
+
     import pandas as pd  # local import preserved
 
-    composite_pareto_results: Dict[str, Dict[str, float]] = {}
+    composite_pareto_results: Dict[
+        str, Dict[str, Union[float, Dict[str, Dict[str, float]]]]
+    ] = {}
 
     for composite_name in composite_names.keys():
         try:
@@ -455,8 +503,22 @@ def analyze_composite_pareto_performance(
                 continue
 
             problems = list(composite_df.index)
-            pareto_count = 0
+
+            # Initialize results for this composite
+            result_dict = {}
+
+            # Calculate composite Pareto stats
+            composite_pareto_count = 0
             total_pairs = 0
+            composite_depths = []  # Track all depth values for composite
+
+            # If analyzing individual measures, initialize counters for each component
+            if do_for_each_measure:
+                component_pareto_counts = {col: 0 for col in component_cols}
+                component_total_pairs = {col: 0 for col in component_cols}
+                component_depths = {
+                    col: [] for col in component_cols
+                }  # Track depths for each component
 
             for problem1, problem2 in itertools.combinations(problems, 2):
                 row1 = composite_df.loc[problem1]
@@ -467,11 +529,14 @@ def analyze_composite_pareto_performance(
                     continue
 
                 points: List[Tuple[float, float]] = []
+                valid_component_indices = []
+
                 # components
-                for col in component_cols:
+                for i, col in enumerate(component_cols):
                     v1, v2 = row1[col], row2[col]
                     if pd.notna(v1) and pd.notna(v2):
                         points.append((v1, v2))
+                        valid_component_indices.append(i)
 
                 # composite
                 points.append((c1, c2))
@@ -480,17 +545,82 @@ def analyze_composite_pareto_performance(
                 if len(points) < 3:
                     continue
 
-                if (len(points) - 1) in pareto_front(points):
-                    pareto_count += 1
+                pareto_indices = pareto_front(points)
+                depths = pareto_depth(points)
+
+                # Check if composite is on Pareto front (it's the last point added)
+                composite_idx = len(points) - 1
+                composite_depths.append(depths[composite_idx])
+                if composite_idx in pareto_indices:
+                    composite_pareto_count += 1
                 total_pairs += 1
 
+                # If analyzing individual measures, check each component
+                if do_for_each_measure:
+                    for point_idx in range(
+                        len(points) - 1
+                    ):  # Exclude composite (last point)
+                        component_idx = valid_component_indices[point_idx]
+                        col = component_cols[component_idx]
+
+                        component_depths[col].append(depths[point_idx])
+                        if point_idx in pareto_indices:
+                            component_pareto_counts[col] += 1
+                        component_total_pairs[col] += 1
+
+            # Store composite results
             if total_pairs > 0:
-                pct = (pareto_count / total_pairs) * 100
-                composite_pareto_results[composite_name] = {
-                    "pareto_count": pareto_count,
-                    "total_problems": total_pairs,
-                    "pareto_percentage": pct,
-                }
+                import numpy as np
+
+                composite_pct = (composite_pareto_count / total_pairs) * 100
+                composite_avg_depth = (
+                    np.mean(composite_depths) if composite_depths else 0.0
+                )
+                composite_median_depth = (
+                    np.median(composite_depths) if composite_depths else 0.0
+                )
+
+                result_dict.update(
+                    {
+                        "pareto_count": composite_pareto_count,
+                        "total_problems": total_pairs,
+                        "pareto_percentage": composite_pct,
+                        "average_pareto_depth": composite_avg_depth,
+                        "median_pareto_depth": composite_median_depth,
+                    }
+                )
+
+                # Store individual component results if requested
+                if do_for_each_measure:
+                    individual_measures = {}
+                    for col in component_cols:
+                        if component_total_pairs[col] > 0:
+                            component_pct = (
+                                component_pareto_counts[col]
+                                / component_total_pairs[col]
+                            ) * 100
+                            component_avg_depth = (
+                                np.mean(component_depths[col])
+                                if component_depths[col]
+                                else 0.0
+                            )
+                            component_median_depth = (
+                                np.median(component_depths[col])
+                                if component_depths[col]
+                                else 0.0
+                            )
+
+                            individual_measures[col] = {
+                                "pareto_count": component_pareto_counts[col],
+                                "total_problems": component_total_pairs[col],
+                                "pareto_percentage": component_pct,
+                                "average_pareto_depth": component_avg_depth,
+                                "median_pareto_depth": component_median_depth,
+                            }
+
+                    result_dict["individual_measures"] = individual_measures
+
+                composite_pareto_results[composite_name] = result_dict
 
         except Exception as e:
             print(f"Error analyzing {composite_name}: {e}")
@@ -506,8 +636,8 @@ def compute_average_ranks(transformed_df: pd.DataFrame) -> pd.Series:
     Compute average ranks (dense) per metric across all (ind_dataset, eval) rows.
     Higher values are better (unchanged).
     """
-    import pandas as pd  # local imports preserved to match original style
     import numpy as np
+    import pandas as pd  # local imports preserved to match original style
     from scipy.stats import rankdata
 
     df = transformed_df.reset_index()

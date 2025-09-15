@@ -112,8 +112,6 @@ def plot_decision_boundaries(
     os.makedirs("./resources/pics", exist_ok=True)
     plt.savefig(f"./resources/pics/{name}.pdf", bbox_inches="tight")
 
-    plt.show()
-
     if return_grid:
         return grid_tensor, xx, yy
 
@@ -209,7 +207,6 @@ def plot_uncertainty_measures(xx, yy, uncertainty_measures_dict, X_test=None):
     plt.savefig(
         "./resources/pics/uq_grid_visualization.pdf", bbox_inches="tight", dpi=150
     )
-    plt.show()
 
 
 def plot_data_and_test_point(X_test, y_test, test_point):
@@ -232,4 +229,3 @@ def plot_data_and_test_point(X_test, y_test, test_point):
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.savefig("./resources/pics/2d_test_point.pdf", bbox_inches="tight")
-    plt.show()

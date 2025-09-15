@@ -13,9 +13,13 @@ from collections import defaultdict
 from mdu.data.constants import DatasetName
 from sklearn.metrics import roc_auc_score
 from mdu.data.data_utils import split_dataset_indices
-from mdu.unc.constants import VectorQuantileModel
-from mdu.unc.multidimensional_uncertainty import MultiDimensionalUncertainty
 import pandas as pd
+from mdu.unc.constants import OTTarget, SamplingMethod, ScalingType
+from mdu.unc.entropic_ot import EntropicOTOrdering
+from mdu.unc.multidimensional_uncertainty import (
+    fit_and_apply_uncertainty_estimators,
+    pretty_compute_all_uncertainties,
+)
 from configs.uncertainty_measures_configs import (
     MAHALANOBIS_AND_BAYES_RISK,
     EXCESSES_DIFFERENT_INSTANTIATIONS,
@@ -39,11 +43,16 @@ def main(
     ind_dataset,
     ood_dataset,
     uncertainty_measures,
-    multidim_model,
-    multidim_params,
-    train_kwargs,
     weights_root,
     seed,
+    target,
+    sampling_method,
+    scaling_type,
+    grid_size,
+    n_targets_multiplier,
+    eps,
+    max_iters,
+    tol,
 ):
     set_all_seeds(seed)
     results = defaultdict(list)
@@ -76,7 +85,6 @@ def main(
         )
 
         y_train_cond = y_ind[train_cond_idx]
-        y_calib = y_ind[calib_idx]
 
         X_train_cond = np.vstack(all_ind_logits)[:, train_cond_idx, :]
         X_calib = np.vstack(all_ind_logits)[:, calib_idx, :]
@@ -84,31 +92,64 @@ def main(
 
         X_ood = np.vstack(all_ood_logits)
 
-        multi_dim_uncertainty = MultiDimensionalUncertainty(
-            uncertainty_measures,
-            multidim_model=multidim_model,
-            multidim_params=multidim_params,
-            if_add_maximal_elements=True,
+        multi_dim_uncertainty = EntropicOTOrdering(
+            target=target,
+            sampling_method=sampling_method,
+            scaling_type=scaling_type,
+            grid_size=grid_size,
+            target_params={},
+            eps=eps,
+            n_targets_multiplier=n_targets_multiplier,
+            max_iters=max_iters,
+            random_state=random_state,
+            tol=tol,
         )
-        multi_dim_uncertainty.fit(
-            logits_train=X_train_cond,
-            y_train=y_train_cond,
-            logits_calib=X_calib,
-            train_kwargs=train_kwargs,
-        )
-        if multidim_model == VectorQuantileModel.CPFLOW:
-            X_test = (
-                torch.from_numpy(X_test).to(torch.float32).to(train_kwargs["device"])
-            )
-            X_ood = torch.from_numpy(X_ood).to(torch.float32).to(train_kwargs["device"])
 
-        _, uncertainty_scores_ind = multi_dim_uncertainty.predict(X_test)
-        _, uncertainty_scores_ood = multi_dim_uncertainty.predict(X_ood)
+        uncertainty_scores_calib, fitted_uncertainty_estimators = (
+            fit_and_apply_uncertainty_estimators(
+                uncertainty_configs=UNCERTAINTY_MEASURES,
+                X_calib_logits=X_train_cond,
+                y_calib=y_train_cond,
+                X_test_logits=X_calib,
+            )
+        )
+
+        uncertainty_scores_list_ind = pretty_compute_all_uncertainties(
+            uncertainty_estimators=fitted_uncertainty_estimators,
+            logits_test=X_test,
+        )
+        uncertainty_scores_list_ood = pretty_compute_all_uncertainties(
+            uncertainty_estimators=fitted_uncertainty_estimators,
+            logits_test=X_ood,
+        )
+
+        ###
+        scores_calib = np.column_stack(
+            [scores for _, scores in uncertainty_scores_calib]
+        )
+        scores_ind = np.column_stack(
+            [scores for _, scores in uncertainty_scores_list_ind]
+        )
+        scores_ood = np.column_stack(
+            [scores for _, scores in uncertainty_scores_list_ood]
+        )
+
+        multi_dim_uncertainty.fit(
+            scores_cal=scores_calib,
+        )
+
+        uncertainty_scores_list_ind.append(
+            ("multidim_scores", multi_dim_uncertainty.predict(scores_ind))
+        )
+        uncertainty_scores_list_ood.append(
+            ("multidim_scores", multi_dim_uncertainty.predict(scores_ood))
+        )
 
         # Compute ROC AUC between in-distribution (class 0) and OOD (class 1) using sklearn
-        for k in uncertainty_scores_ind.keys():
-            ind_scores = uncertainty_scores_ind[k]
-            ood_scores = uncertainty_scores_ood[k]
+        for ind_ in range(len(uncertainty_scores_list_ind)):
+            k = uncertainty_scores_list_ind[ind_][0]
+            ind_scores = uncertainty_scores_list_ind[ind_][1]
+            ood_scores = uncertainty_scores_list_ood[ind_][1]
 
             # Concatenate scores and labels
             all_scores = np.concatenate([ind_scores, ood_scores])
@@ -162,51 +203,9 @@ if __name__ == "__main__":
     # UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK # + BAYES_RISK_AND_BAYES_RISK + EXCESSES_DIFFERENT_INSTANTIATIONS
     UNCERTAINTY_MEASURES = EAT_M
     print(UNCERTAINTY_MEASURES)
-    MULTIDIM_MODEL = VectorQuantileModel.ENTROPIC_OT
-
-    device = torch.device("cuda:0")
-
-    if MULTIDIM_MODEL == VectorQuantileModel.CPFLOW:
-        train_kwargs = {
-            "lr": 1e-4,
-            "num_epochs": 10,
-            "batch_size": 64,
-            "device": device,
-        }
-        multidim_params = {
-            "feature_dimension": len(UNCERTAINTY_MEASURES),
-            "hidden_dim": 8,
-            "num_hidden_layers": 5,
-            "nblocks": 4,
-            "zero_softplus": False,
-            "softplus_type": "softplus",
-            "symm_act_first": False,
-        }
-
-    elif MULTIDIM_MODEL == VectorQuantileModel.OTCP:
-        train_kwargs = {
-            "batch_size": 64,
-            "device": device,
-        }
-        multidim_params = {
-            "positive": True,
-        }
-    elif MULTIDIM_MODEL == VectorQuantileModel.ENTROPIC_OT:
-        train_kwargs = {
-            "batch_size": 64,
-            "device": device,
-        }
-        multidim_params = {
-            "target": "exp",
-            "standardize": False,
-            "fit_mse_params": False,
-            "eps": 0.1,
-            "max_iters": 100,
-            "tol": 1e-6,
-            "random_state": seed,
-        }
-    else:
-        raise ValueError(f"Invalid multidim model: {MULTIDIM_MODEL}")
+    device = (
+        torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+    )
 
     ENSEMBLE_GROUPS = [
         [0, 1, 2, 3, 4],
@@ -219,15 +218,30 @@ if __name__ == "__main__":
     ood_dataset = DatasetName.CIFAR100.value
     weights_root = "./resources/model_weights"
 
+    target = OTTarget.EXP
+    sampling_method = SamplingMethod.GRID
+    scaling_type = ScalingType.FEATURE_WISE
+    grid_size = 5
+    n_targets_multiplier = 1
+    eps = 0.5
+    max_iters = 1000
+    tol = 1e-6
+    random_state = seed
+
     df = main(
-        ENSEMBLE_GROUPS,
-        ind_dataset,
-        ood_dataset,
-        UNCERTAINTY_MEASURES,
-        MULTIDIM_MODEL,
-        multidim_params,
-        train_kwargs,
-        weights_root,
-        seed,
+        ensemble_groups=ENSEMBLE_GROUPS,
+        ind_dataset=ind_dataset,
+        ood_dataset=ood_dataset,
+        uncertainty_measures=UNCERTAINTY_MEASURES,
+        weights_root=weights_root,
+        seed=seed,
+        target=target,
+        sampling_method=sampling_method,
+        scaling_type=scaling_type,
+        grid_size=grid_size,
+        n_targets_multiplier=n_targets_multiplier,
+        eps=eps,
+        max_iters=max_iters,
+        tol=tol,
     )
     print(df)

@@ -189,7 +189,7 @@ def plot_uncertainty_measures(xx, yy, uncertainty_measures_dict, X_test=None):
         if measure_name == "additive_total":
             ax.set_title("Total uncertainty")
         elif measure_name == "multidim_scores":
-            ax.set_title("Multidimensional uncertainty scores")
+            ax.set_title("VecUQ-OT")
         else:
             ax.set_title(measure_name)
         ax.set_xlabel("$x_1$")
@@ -205,7 +205,7 @@ def plot_uncertainty_measures(xx, yy, uncertainty_measures_dict, X_test=None):
 
     # Save and display
     plt.savefig(
-        "./resources/pics/uq_grid_visualization.pdf", bbox_inches="tight", dpi=150
+        "./resources/pics/uq_grid_visualization.png", bbox_inches="tight", dpi=150
     )
 
 

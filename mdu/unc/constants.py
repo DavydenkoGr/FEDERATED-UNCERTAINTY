@@ -5,6 +5,7 @@ class UncertaintyType(Enum):
     RISK = "Risk"
     MAHALANOBIS = "Mahalanobis"
     GMM = "GMM"
+    DUMMY = "Dummy"
 
 
 class OTTarget(Enum):

@@ -24,6 +24,7 @@ from configs.uncertainty_measures_configs import (
     EXCESSES_DIFFERENT_APPROXIMATIONS_SPHERICALSCORE,
     EXCESSES_DIFFERENT_INSTANTIATIONS, MAHALANOBIS_AND_BAYES_RISK,
     MULTIPLE_SAME_MEASURES,
+    SINGLE_AND_FAKE,
     SINGLE_MEASURE
     )
 from mdu.data.constants import DatasetName
@@ -199,7 +200,7 @@ def main(
 if __name__ == "__main__":
     seed = 42
     # UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK # + BAYES_RISK_AND_BAYES_RISK + EXCESSES_DIFFERENT_INSTANTIATIONS
-    UNCERTAINTY_MEASURES = MULTIPLE_SAME_MEASURES
+    UNCERTAINTY_MEASURES = SINGLE_AND_FAKE
     print(UNCERTAINTY_MEASURES)
     device = (
         torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")

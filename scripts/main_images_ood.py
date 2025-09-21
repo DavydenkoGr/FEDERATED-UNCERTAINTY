@@ -6,36 +6,34 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from mdu.eval.eval_utils import load_pickle
-import numpy as np
-import torch
 from collections import defaultdict
-from mdu.data.constants import DatasetName
-from sklearn.metrics import roc_auc_score
-from mdu.data.data_utils import split_dataset_indices
+
+import numpy as np
 import pandas as pd
-from mdu.unc.constants import OTTarget, SamplingMethod, ScalingType
-from mdu.unc.entropic_ot import EntropicOTOrdering
-from mdu.unc.multidimensional_uncertainty import (
-    fit_and_apply_uncertainty_estimators,
-    pretty_compute_all_uncertainties,
-)
+import torch
+from sklearn.metrics import roc_auc_score
+
 from configs.uncertainty_measures_configs import (
-    MAHALANOBIS_AND_BAYES_RISK,
-    EXCESSES_DIFFERENT_INSTANTIATIONS,
-    EXCESSES_DIFFERENT_APPROXIMATIONS_LOGSCORE,
-    EXCESSES_DIFFERENT_APPROXIMATIONS_BRIERSCORE,
-    EXCESSES_DIFFERENT_APPROXIMATIONS_SPHERICALSCORE,
-    BAYES_DIFFERENT_APPROXIMATIONS_LOGSCORE,
+    ADDITIVE_TOTALS, BAYES_DIFFERENT_APPROXIMATIONS_LOGSCORE,
     BAYES_DIFFERENT_APPROXIMATIONS_SPHERICALSCORE,
     BAYES_DIFFERENT_INSTANTIATIONS,
     BAYES_RISK_AND_BAYES_RISK,
-    SINGLE_MEASURE,
-    ADDITIVE_TOTALS,
-    CORRESPONDING_COMPONENTS_TO_ADDITIVE_TOTALS,
-    EAT_M,
-)
+    CORRESPONDING_COMPONENTS_TO_ADDITIVE_TOTALS, EAT_M,
+    EXCESSES_DIFFERENT_APPROXIMATIONS_BRIERSCORE,
+    EXCESSES_DIFFERENT_APPROXIMATIONS_LOGSCORE,
+    EXCESSES_DIFFERENT_APPROXIMATIONS_SPHERICALSCORE,
+    EXCESSES_DIFFERENT_INSTANTIATIONS, MAHALANOBIS_AND_BAYES_RISK,
+    MULTIPLE_SAME_MEASURES,
+    SINGLE_MEASURE
+    )
+from mdu.data.constants import DatasetName
+from mdu.data.data_utils import split_dataset_indices
+from mdu.eval.eval_utils import load_pickle
 from mdu.randomness import set_all_seeds
+from mdu.unc.constants import OTTarget, SamplingMethod, ScalingType
+from mdu.unc.entropic_ot import EntropicOTOrdering
+from mdu.unc.multidimensional_uncertainty import (
+    fit_and_apply_uncertainty_estimators, pretty_compute_all_uncertainties)
 
 
 def main(
@@ -201,7 +199,7 @@ def main(
 if __name__ == "__main__":
     seed = 42
     # UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK # + BAYES_RISK_AND_BAYES_RISK + EXCESSES_DIFFERENT_INSTANTIATIONS
-    UNCERTAINTY_MEASURES = EAT_M
+    UNCERTAINTY_MEASURES = MULTIPLE_SAME_MEASURES
     print(UNCERTAINTY_MEASURES)
     device = (
         torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
@@ -245,3 +243,6 @@ if __name__ == "__main__":
         tol=tol,
     )
     print(df)
+    df = df.drop(columns=['ROC AUC Scores']).round(4)
+    df.to_csv("./ood_results.csv", index=False)
+    print(df.to_latex())

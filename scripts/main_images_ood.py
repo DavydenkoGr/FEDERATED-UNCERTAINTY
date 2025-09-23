@@ -208,7 +208,7 @@ def main(
 if __name__ == "__main__":
     seed = 42
     # UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK # + BAYES_RISK_AND_BAYES_RISK + EXCESSES_DIFFERENT_INSTANTIATIONS
-    UNCERTAINTY_MEASURES = SINGLE_AND_FAKE
+    UNCERTAINTY_MEASURES = EXCESSES_DIFFERENT_APPROXIMATIONS_LOGSCORE
     print(UNCERTAINTY_MEASURES)
     device = (
         torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")

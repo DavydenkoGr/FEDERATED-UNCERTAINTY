@@ -23,3 +23,4 @@ class SamplingMethod(Enum):
 class ScalingType(Enum):
     GLOBAL = "Global"
     FEATURE_WISE = "FeatureWise"
+    IDENTITY = "Identity"

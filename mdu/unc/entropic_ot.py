@@ -50,7 +50,10 @@ class EntropicOTOrdering:
     def fit(self, scores_cal: np.ndarray) -> "EntropicOTOrdering":
         Xz = np.asarray(scores_cal, dtype=np.float64)
         self._fit_scaler(Xz)
-        Xz_transformed = self._transform_and_add_grid(Xz)
+        if self.grid_size > 0:
+            Xz_transformed = self._transform_and_add_grid(Xz)
+        else:
+            Xz_transformed = Xz
 
         n, d = Xz_transformed.shape
         self.dim_ = d

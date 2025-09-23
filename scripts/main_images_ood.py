@@ -106,7 +106,7 @@ def main(
 
         uncertainty_scores_calib, fitted_uncertainty_estimators = (
             fit_and_apply_uncertainty_estimators(
-                uncertainty_configs=UNCERTAINTY_MEASURES,
+                uncertainty_configs=uncertainty_measures,
                 X_calib_logits=X_train_cond,
                 y_calib=y_train_cond,
                 X_test_logits=X_calib,

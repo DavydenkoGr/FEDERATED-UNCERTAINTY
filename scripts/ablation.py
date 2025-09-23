@@ -34,7 +34,7 @@ from scripts.main_images_ood import main as main_ood
 if __name__ == "__main__":
     seed = 42
     # UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK # + BAYES_RISK_AND_BAYES_RISK + EXCESSES_DIFFERENT_INSTANTIATIONS
-    UNCERTAINTY_MEASURES = EAT_M
+    UNCERTAINTY_MEASURES = EXCESSES_DIFFERENT_APPROXIMATIONS_LOGSCORE
     print(UNCERTAINTY_MEASURES)
     device = (
         torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
@@ -54,6 +54,9 @@ if __name__ == "__main__":
     weights_root = "./resources/model_weights"
 
     for configuration in [
+        {"target": OTTarget.EXP, "scaling_type": ScalingType.IDENTITY, "grid_size": 5},
+        {"target": OTTarget.EXP, "scaling_type": ScalingType.IDENTITY, "grid_size": 2},
+        {"target": OTTarget.EXP, "scaling_type": ScalingType.IDENTITY, "grid_size": 0},
         {
             "target": OTTarget.EXP,
             "scaling_type": ScalingType.FEATURE_WISE,
@@ -72,9 +75,6 @@ if __name__ == "__main__":
         {"target": OTTarget.EXP, "scaling_type": ScalingType.GLOBAL, "grid_size": 5},
         {"target": OTTarget.EXP, "scaling_type": ScalingType.GLOBAL, "grid_size": 2},
         {"target": OTTarget.EXP, "scaling_type": ScalingType.GLOBAL, "grid_size": 0},
-        {"target": OTTarget.EXP, "scaling_type": ScalingType.IDENTITY, "grid_size": 5},
-        {"target": OTTarget.EXP, "scaling_type": ScalingType.IDENTITY, "grid_size": 2},
-        {"target": OTTarget.EXP, "scaling_type": ScalingType.IDENTITY, "grid_size": 0},
         {
             "target": OTTarget.BETA,
             "scaling_type": ScalingType.FEATURE_WISE,
@@ -108,30 +108,33 @@ if __name__ == "__main__":
         tol = 1e-6
         random_state = seed
 
-        df = main_ood(
-            ensemble_groups=ENSEMBLE_GROUPS,
-            ind_dataset=ind_dataset,
-            ood_dataset=ood_dataset,
-            uncertainty_measures=UNCERTAINTY_MEASURES,
-            weights_root=weights_root,
-            seed=seed,
-            target=target,
-            sampling_method=sampling_method,
-            scaling_type=scaling_type,
-            grid_size=grid_size,
-            n_targets_multiplier=n_targets_multiplier,
-            eps=eps,
-            max_iters=max_iters,
-            tol=tol,
-        )
-        df["target"] = target.value
-        df["scaling_type"] = scaling_type.value
-        df["grid_size"] = grid_size
-        print(df)
-        if full_ablation_df is None:
-            full_ablation_df = df
-        else:
-            full_ablation_df = pd.concat([full_ablation_df, df])
+        try:
+            df = main_ood(
+                ensemble_groups=ENSEMBLE_GROUPS,
+                ind_dataset=ind_dataset,
+                ood_dataset=ood_dataset,
+                uncertainty_measures=UNCERTAINTY_MEASURES,
+                weights_root=weights_root,
+                seed=seed,
+                target=target,
+                sampling_method=sampling_method,
+                scaling_type=scaling_type,
+                grid_size=grid_size,
+                n_targets_multiplier=n_targets_multiplier,
+                eps=eps,
+                max_iters=max_iters,
+                tol=tol,
+            )
+            df["target"] = target.value
+            df["scaling_type"] = scaling_type.value
+            df["grid_size"] = grid_size
+            print(df)
+            if full_ablation_df is None:
+                full_ablation_df = df
+            else:
+                full_ablation_df = pd.concat([full_ablation_df, df])
+        except Exception as ex:
+            print(f"Error occured during running {target.value} {scaling_type.value} {grid_size}", ex)
     full_ablation_df.to_csv(
         f"./ablation_ood_results_{ind_dataset.lower()}_{ood_dataset.lower()}.csv",
         index=False,

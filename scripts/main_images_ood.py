@@ -100,7 +100,7 @@ def main(
             eps=eps,
             n_targets_multiplier=n_targets_multiplier,
             max_iters=max_iters,
-            random_state=random_state,
+            random_state=seed,
             tol=tol,
         )
 

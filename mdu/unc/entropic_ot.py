@@ -53,7 +53,7 @@ class EntropicOTOrdering:
         if self.grid_size > 0:
             Xz_transformed = self._transform_and_add_grid(Xz)
         else:
-            Xz_transformed = Xz
+            Xz_transformed = self.scaler.transform(Xz)
 
         n, d = Xz_transformed.shape
         self.dim_ = d

@@ -60,12 +60,20 @@ def main(
         all_ind_logits = []
         all_ood_logits = []
         for model_id in group:
-            ind_res = load_pickle(
-                f"{weights_root}/{ind_dataset}/checkpoints/resnet18/CrossEntropy/{model_id}/{ind_dataset}.pkl"
-            )
-            ood_res = load_pickle(
-                f"{weights_root}/{ind_dataset}/checkpoints/resnet18/CrossEntropy/{model_id}/{ood_dataset}.pkl"
-            )
+            if ind_dataset != DatasetName.TINY_IMAGENET.value.lower():
+                ind_res = load_pickle(
+                    f"{weights_root}/{ind_dataset}/checkpoints/resnet18/CrossEntropy/{model_id}/{ind_dataset}.pkl"
+                )
+                ood_res = load_pickle(
+                    f"{weights_root}/{ind_dataset}/checkpoints/resnet18/CrossEntropy/{model_id}/{ood_dataset}.pkl"
+                )
+            else:
+                ind_res = load_pickle(
+                    f"{weights_root}/{ind_dataset}/{model_id}/{ind_dataset}.pkl"
+                )
+                ood_res = load_pickle(
+                    f"{weights_root}/{ind_dataset}/{model_id}/{ood_dataset}.pkl"
+                )
 
             logits_ind = ind_res["embeddings"]
             all_ind_logits.append(ind_res["embeddings"][None])

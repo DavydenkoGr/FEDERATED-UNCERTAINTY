@@ -60,12 +60,20 @@ def main(
         all_ind_logits = []
         all_ood_logits = []
         for model_id in group:
-            ind_res = load_pickle(
-                f"{weights_root}/{ind_dataset}/checkpoints/resnet18/CrossEntropy/{model_id}/{ind_dataset}.pkl"
-            )
-            ood_res = load_pickle(
-                f"{weights_root}/{ind_dataset}/checkpoints/resnet18/CrossEntropy/{model_id}/{ood_dataset}.pkl"
-            )
+            if ind_dataset != DatasetName.TINY_IMAGENET.value.lower():
+                ind_res = load_pickle(
+                    f"{weights_root}/{ind_dataset}/checkpoints/resnet18/CrossEntropy/{model_id}/{ind_dataset}.pkl"
+                )
+                ood_res = load_pickle(
+                    f"{weights_root}/{ind_dataset}/checkpoints/resnet18/CrossEntropy/{model_id}/{ood_dataset}.pkl"
+                )
+            else:
+                ind_res = load_pickle(
+                    f"{weights_root}/{ind_dataset}/{model_id}/{ind_dataset}.pkl"
+                )
+                ood_res = load_pickle(
+                    f"{weights_root}/{ind_dataset}/{model_id}/{ood_dataset}.pkl"
+                )
 
             logits_ind = ind_res["embeddings"]
             all_ind_logits.append(ind_res["embeddings"][None])
@@ -100,13 +108,13 @@ def main(
             eps=eps,
             n_targets_multiplier=n_targets_multiplier,
             max_iters=max_iters,
-            random_state=random_state,
+            random_state=seed,
             tol=tol,
         )
 
         uncertainty_scores_calib, fitted_uncertainty_estimators = (
             fit_and_apply_uncertainty_estimators(
-                uncertainty_configs=UNCERTAINTY_MEASURES,
+                uncertainty_configs=uncertainty_measures,
                 X_calib_logits=X_train_cond,
                 y_calib=y_train_cond,
                 X_test_logits=X_calib,
@@ -200,7 +208,7 @@ def main(
 if __name__ == "__main__":
     seed = 42
     # UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK # + BAYES_RISK_AND_BAYES_RISK + EXCESSES_DIFFERENT_INSTANTIATIONS
-    UNCERTAINTY_MEASURES = SINGLE_AND_FAKE
+    UNCERTAINTY_MEASURES = EXCESSES_DIFFERENT_APPROXIMATIONS_LOGSCORE
     print(UNCERTAINTY_MEASURES)
     device = (
         torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")

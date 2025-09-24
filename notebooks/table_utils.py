@@ -805,3 +805,73 @@ def analyze_individual_component_performance(
         results_data.append(dominance_stats)
     
     return pd.DataFrame(results_data).sort_values('avg_rank', ascending=True)
+
+def fmt_valvar(df_mean: pd.DataFrame,
+               df_std: pd.DataFrame,
+               mean_decimals: int = 3,
+               std_decimals: int = 3,
+               leading_dot_std: bool = True,
+               bold: bool = True,
+               underline: bool = True,
+               best_mask: pd.DataFrame | None = None,
+               na: str = "--") -> pd.DataFrame:
+    """
+    Create DataFrame of LaTeX strings like:
+        \\valvar{\\textbf{\\underline{0.318}}}{.007}
+    
+    Parameters
+    ----------
+    df_mean, df_std : same-shaped DataFrames
+    mean_decimals, std_decimals : rounding for mean/std
+    leading_dot_std : drop leading '0' in std (0.007 -> .007)
+    bold, underline : default styling for mean
+    best_mask : optional boolean DataFrame (same shape).
+                If provided, styling (bold/underline) is applied only where best_mask==True.
+                Else styling applied to all cells.
+    na : placeholder for missing values
+    """
+    assert df_mean.shape == df_std.shape, "Shapes must match"
+    if best_mask is not None:
+        assert best_mask.shape == df_mean.shape, "best_mask shape must match"
+
+    def style_mean(m_str: str, i: int, j: int) -> str:
+        apply_style = True if best_mask is None else bool(best_mask.iat[i, j])
+        if apply_style:
+            if underline:
+                m_str = f"\\underline{{{m_str}}}"
+            if bold:
+                m_str = f"\\textbf{{{m_str}}}"
+        return m_str
+
+    out = pd.DataFrame(index=df_mean.index, columns=df_mean.columns, dtype=object)
+    for i, row in enumerate(df_mean.index):
+        for j, col in enumerate(df_mean.columns):
+            m = df_mean.iat[i, j]
+            s = df_std.iat[i, j]
+            if pd.notna(m) and pd.notna(s):
+                m_str = f"{m:.{mean_decimals}f}"
+                s_str = f"{s:.{std_decimals}f}"
+                if leading_dot_std and s_str.startswith("0"):
+                    s_str = s_str[1:]
+                m_str = style_mean(m_str, i, j)
+                out.iat[i, j] = f"\\valvar{{{m_str}}}{{{s_str}}}"
+            else:
+                out.iat[i, j] = na
+    return out
+
+def with_avg_row(df: pd.DataFrame, label=("AVG", "mean over rows")) -> pd.DataFrame:
+    avg = df.mean(axis=0, numeric_only=True)  # column-wise mean
+    avg_row = pd.DataFrame([avg], 
+        index=pd.MultiIndex.from_tuples([label], names=df.index.names))
+    return pd.concat([df, avg_row])  # keeps it as the last row
+
+def mean_pm_std(df_mean: pd.DataFrame, df_std: pd.DataFrame, decimals: int = 3, nan="--") -> pd.DataFrame:
+    """Return a DataFrame of LaTeX strings like '$1.234 \\pm 0.056$'."""
+    assert df_mean.shape == df_std.shape
+    def combine_cols(mcol: pd.Series, scol: pd.Series) -> pd.Series:
+        return mcol.combine(
+            scol,
+            lambda m, s: (f"${m:.{decimals}f} \\pm {s:.{decimals}f}$") 
+                         if pd.notna(m) and pd.notna(s) else nan
+        )
+    return df_mean.combine(df_std, combine_cols)

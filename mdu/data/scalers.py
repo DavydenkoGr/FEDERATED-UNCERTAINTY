@@ -135,3 +135,11 @@ class GlobalMinMaxScaler:
         else:
             # If all values are the same, return zeros
             return np.zeros_like(X)
+
+
+class IdentityScaler:
+    def fit(self, X):
+        self.local_max_ = np.max(X, axis=0)
+        return self
+    def transform(self, X):
+        return X

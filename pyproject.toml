@@ -8,19 +8,12 @@ dependencies = [
     "ipykernel>=6.30.0",
     "ipython>=9.3.0",
     "jupyterlab>=4.4.5",
-    "lm-polygraph>=0.4.0",
     "matplotlib>=3.10.3",
+    "numpy>=2.3.0",
     "pot>=0.9.5",
     "scikit-learn>=1.7.0",
     "seaborn>=0.13.2",
-    "torch==2.5",
+    "torch==2.2.2 ; platform_machine == 'x86_64' and sys_platform == 'darwin'",
+    "torch>=2.7.1 ; platform_machine != 'x86_64' or sys_platform != 'darwin'",
     "tqdm>=4.67.1",
-    "transformers==4.49",
 ]
-
-[[tool.uv.index]]
-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
-default = true
-
-[tool.uv.sources]
-lm-polygraph = { git = "https://github.com/IINemo/lm-polygraph.git" }

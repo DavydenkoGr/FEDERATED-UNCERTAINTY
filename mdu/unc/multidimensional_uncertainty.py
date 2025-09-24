@@ -94,6 +94,9 @@ class UncertaintyEstimator:
         elif self.uncertainty_type == UncertaintyType.RISK:
             # Risk-based uncertainty does not require fitting
             self.is_fitted = True
+        elif self.uncertainty_type == UncertaintyType.DUMMY:
+            self.model = np.random.randn()
+            self.is_fitted = True
         else:
             # For future uncertainty types, add logic here
             raise ValueError(
@@ -150,6 +153,8 @@ class UncertaintyEstimator:
                 probabilities=params.get("probabilities", None),
                 T=params["T"],
             )
+        elif self.uncertainty_type == UncertaintyType.DUMMY:
+            return np.ones(logits.shape[1]) * self.model
         else:
             raise ValueError(
                 f"Unknown or unsupported uncertainty type: {self.uncertainty_type}"

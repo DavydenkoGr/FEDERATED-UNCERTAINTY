@@ -239,6 +239,108 @@ SINGLE_MEASURE = [
     },
 ]
 
+SINGLE_AND_FAKE = [
+    {
+        "type": UncertaintyType.RISK,
+        "print_name": "EXC 1 1 (log)",
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.EXCESS_RISK,
+            "gt_approx": ApproximationType.OUTER,
+            "pred_approx": ApproximationType.OUTER,
+            "T": 1.0,
+        },
+    },
+    {
+        "type": UncertaintyType.DUMMY,
+        "print_name": "Constant 1",
+        "kwargs": {
+        },
+    },
+    {
+        "type": UncertaintyType.DUMMY,
+        "print_name": "Constant 2",
+        "kwargs": {
+        },
+    },
+    {
+        "type": UncertaintyType.DUMMY,
+        "print_name": "Constant 3",
+        "kwargs": {
+        },
+    },
+    {
+        "type": UncertaintyType.DUMMY,
+        "print_name": "Constant 4",
+        "kwargs": {
+        },
+    },
+    {
+        "type": UncertaintyType.DUMMY,
+        "print_name": "Constant 5",
+        "kwargs": {
+        },
+    },
+]
+
+MULTIPLE_SAME_MEASURES = [
+    {
+        "type": UncertaintyType.RISK,
+        "print_name": "EXC 1 1 (log) 1",
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.EXCESS_RISK,
+            "gt_approx": ApproximationType.OUTER,
+            "pred_approx": ApproximationType.OUTER,
+            "T": 1.0,
+        },
+    },
+    {
+        "type": UncertaintyType.RISK,
+        "print_name": "EXC 1 1 (log) 2",
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.EXCESS_RISK,
+            "gt_approx": ApproximationType.OUTER,
+            "pred_approx": ApproximationType.OUTER,
+            "T": 1.0,
+        },
+    },
+    {
+        "type": UncertaintyType.RISK,
+        "print_name": "EXC 1 1 (log) 3",
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.EXCESS_RISK,
+            "gt_approx": ApproximationType.OUTER,
+            "pred_approx": ApproximationType.OUTER,
+            "T": 1.0,
+        },
+    },
+    {
+        "type": UncertaintyType.RISK,
+        "print_name": "EXC 1 1 (log) 4",
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.EXCESS_RISK,
+            "gt_approx": ApproximationType.OUTER,
+            "pred_approx": ApproximationType.OUTER,
+            "T": 1.0,
+        },
+    },
+    {
+        "type": UncertaintyType.RISK,
+        "print_name": "EXC 1 1 (log) 5",
+        "kwargs": {
+            "g_name": GName.LOG_SCORE,
+            "risk_type": RiskType.EXCESS_RISK,
+            "gt_approx": ApproximationType.OUTER,
+            "pred_approx": ApproximationType.OUTER,
+            "T": 1.0,
+        },
+    },
+]
+
 BAYES_RISK_AND_BAYES_RISK = [
     {
         "type": UncertaintyType.RISK,

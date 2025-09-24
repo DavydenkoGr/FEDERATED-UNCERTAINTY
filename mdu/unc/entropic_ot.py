@@ -12,7 +12,7 @@ from mdu.unc.ot_utils import (
     transform_to_beta,
     generate_unit_hypercube_grid_nodes,
 )
-from mdu.data.scalers import GlobalMinMaxScaler
+from mdu.data.scalers import GlobalMinMaxScaler, IdentityScaler
 from sklearn.preprocessing import MinMaxScaler
 
 
@@ -50,7 +50,10 @@ class EntropicOTOrdering:
     def fit(self, scores_cal: np.ndarray) -> "EntropicOTOrdering":
         Xz = np.asarray(scores_cal, dtype=np.float64)
         self._fit_scaler(Xz)
-        Xz_transformed = self._transform_and_add_grid(Xz)
+        if self.grid_size > 0:
+            Xz_transformed = self._transform_and_add_grid(Xz)
+        else:
+            Xz_transformed = self.scaler.transform(Xz)
 
         n, d = Xz_transformed.shape
         self.dim_ = d
@@ -93,6 +96,8 @@ class EntropicOTOrdering:
             self.scaler = GlobalMinMaxScaler()
         elif self.scaling_type == ScalingType.FEATURE_WISE.value:
             self.scaler = MinMaxScaler()
+        elif self.scaling_type == ScalingType.IDENTITY.value:
+            self.scaler = IdentityScaler()
         else:
             raise ValueError(f"Unknown scaling type: {self.scaling_type}")
 
@@ -107,6 +112,8 @@ class EntropicOTOrdering:
             metric_wise_scaled_maximums = (
                 self.scaler.local_max_ / self.scaler.global_max_
             )
+        elif self.scaling_type == ScalingType.IDENTITY.value:
+            metric_wise_scaled_maximums = self.scaler.local_max_
         else:
             metric_wise_scaled_maximums = 1
         maximal_elements_grid = (

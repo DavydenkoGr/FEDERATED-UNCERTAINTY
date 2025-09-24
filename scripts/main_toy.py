@@ -6,34 +6,34 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from mdu.unc.constants import OTTarget, SamplingMethod, ScalingType
-import torch
-from mdu.randomness import set_all_seeds
 import numpy as np
-from mdu.nn.load_models import get_model
-from mdu.nn.constants import ModelName
-from mdu.optim.train import train_ensembles
+import torch
 import torch.nn as nn
-from mdu.vis.toy_plots import plot_decision_boundaries, plot_uncertainty_measures
-from mdu.unc.multidimensional_uncertainty import (
-    fit_transform_uncertainty_estimators,
-    pretty_compute_all_uncertainties,
-)
-from mdu.unc.entropic_ot import EntropicOTOrdering
-from mdu.eval.eval_utils import get_ensemble_predictions
-from mdu.data.load_dataset import get_dataset
-from mdu.data.data_utils import split_dataset
-from mdu.data.constants import DatasetName
+
 from configs.uncertainty_measures_configs import (
-    MAHALANOBIS_AND_BAYES_RISK,
-    GMM_AND_BAYES_RISK,
-    EXCESSES_DIFFERENT_INSTANTIATIONS,
-    EXCESSES_DIFFERENT_APPROXIMATIONS_LOGSCORE,
     BAYES_DIFFERENT_APPROXIMATIONS_LOGSCORE,
     BAYES_DIFFERENT_INSTANTIATIONS,
     BAYES_RISK_AND_BAYES_RISK,
+    EXCESSES_DIFFERENT_APPROXIMATIONS_LOGSCORE,
+    EXCESSES_DIFFERENT_INSTANTIATIONS,
+    GMM_AND_BAYES_RISK,
+    MAHALANOBIS_AND_BAYES_RISK,
 )
-
+from mdu.data.constants import DatasetName
+from mdu.data.data_utils import split_dataset
+from mdu.data.load_dataset import get_dataset
+from mdu.eval.eval_utils import get_ensemble_predictions
+from mdu.nn.constants import ModelName
+from mdu.nn.load_models import get_model
+from mdu.optim.train import train_ensembles
+from mdu.randomness import set_all_seeds
+from mdu.unc.constants import OTTarget, SamplingMethod, ScalingType
+from mdu.unc.entropic_ot import EntropicOTOrdering
+from mdu.unc.multidimensional_uncertainty import (
+    fit_and_apply_uncertainty_estimators,
+    pretty_compute_all_uncertainties,
+)
+from mdu.vis.toy_plots import plot_decision_boundaries, plot_uncertainty_measures
 
 UNCERTAINTY_MEASURES = MAHALANOBIS_AND_BAYES_RISK
 
@@ -54,9 +54,9 @@ lr = 1e-3
 criterion = nn.CrossEntropyLoss()
 
 
-target = OTTarget.EXP
+target = OTTarget.BETA
 sampling_method = SamplingMethod.GRID
-scaling_type = ScalingType.GLOBAL
+scaling_type = ScalingType.FEATURE_WISE
 grid_size = 5
 n_targets_multiplier = 1
 eps = 0.5
@@ -151,7 +151,7 @@ multi_dim_uncertainty = EntropicOTOrdering(
 
 ####
 pretty_uncertainty_scores_calib, fitted_uncertainty_estimators = (
-    fit_transform_uncertainty_estimators(
+    fit_and_apply_uncertainty_estimators(
         uncertainty_configs=UNCERTAINTY_MEASURES,
         X_calib_logits=X_calib_logits,
         y_calib=y_calib,

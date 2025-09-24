@@ -14,7 +14,7 @@ import argparse
 import numpy as np
 import pandas as pd
 from sklearn.metrics import roc_auc_score
-from mdu.vqr.entropic_ot.entropic_ot import EntropicOTOrdering
+from mdu.unc.entropic_ot import EntropicOTOrdering
 import torch
 from tqdm.auto import tqdm
 

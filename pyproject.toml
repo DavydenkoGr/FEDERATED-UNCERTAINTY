@@ -15,5 +15,6 @@ dependencies = [
     "seaborn>=0.13.2",
     "torch==2.2.2 ; platform_machine == 'x86_64' and sys_platform == 'darwin'",
     "torch>=2.7.1 ; platform_machine != 'x86_64' or sys_platform != 'darwin'",
+    "torchvision>=0.17.2",
     "tqdm>=4.67.1",
 ]

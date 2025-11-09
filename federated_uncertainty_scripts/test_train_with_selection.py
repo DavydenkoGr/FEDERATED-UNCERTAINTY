@@ -80,7 +80,7 @@ samples_per_client = len(trainset) // fraction
 client_train_loaders = []
 print(f"\n==> Generating {n_models} unique datasets for model pool training...")
 for i in range(n_models):
-    n_model_classes = random.randint(5, 5)
+    n_model_classes = random.randint(2, 5)
     selected_classes = random.sample(range(n_classes), n_model_classes)
     train_indices = sample_indices(selected_classes, train_class_indices, samples_per_client)
     train_subset = Subset(trainset, train_indices)

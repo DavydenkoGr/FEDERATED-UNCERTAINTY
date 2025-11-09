@@ -24,22 +24,35 @@ seed = 1
 set_all_seeds(seed)
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
+parser.add_argument('--n_models', default=20, type=int, help='number of models')
+parser.add_argument('--n_clients', default=5, type=int, help='number of clients')
+parser.add_argument('--ensemble_selection_size', default=3, type=int, help='number of models for single client')
+parser.add_argument('--lambda_disagreement', default=0.1, type=float, help='disagreement importance')
+parser.add_argument('--lambda_antireg', default=0.01, type=float, help='antiregularization coefficient')
+parser.add_argument('--fraction', default=0.25, type=float, help='client part of test data')
+parser.add_argument('--n_epochs', default=5, type=int, help='number of training epoches')
 parser.add_argument('--batch_size', default=128, type=int, help='batch size')
+parser.add_argument('--lr', default=1e-3, type=float, help='learning rate for models')
 args = parser.parse_args()
 
+# USE CUDA PREFFERED
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
+# command line arguments
+n_models = args.n_models
+n_clients = args.n_clients
+ensemble_selection_size = args.ensemble_selection_size
+lambda_disagreement = args.lambda_disagreement # for Uncertainty-Aware
+lambda_antireg = args.lambda_antireg
+fraction = args.fraction
+n_epochs = args.n_epochs
+lr = args.lr
+batch_size = args.batch_size
+
+# FOR CIFAR10 ONLY
 n_classes = 10
 classes = ('plane', 'car', 'bird', 'cat', 'deer',
            'dog', 'frog', 'horse', 'ship', 'truck')
-
-n_models = 30
-n_clients = 5
-LAMBDA = 0.1 # для Uncertainty-Aware
-fraction = 4
-n_epochs = 5
-lr = 1e-3
-ensemble_selection_size = 3
 criterion = nn.CrossEntropyLoss()
 
 print('==> Preparing data..')
@@ -75,23 +88,23 @@ def sample_indices(selected_classes, class_indices, total_samples):
         selected_indices += random.sample(class_indices[c], n)
     return selected_indices
 
-samples_per_client = len(trainset) // fraction
+samples_per_client = int(len(trainset) * fraction)
 
 client_train_loaders = []
-print(f"\n==> Generating {n_models} unique datasets for model pool training...")
+print(f"\n==> Generating {n_models} datasets for model pool training...")
 for i in range(n_models):
     n_model_classes = random.randint(2, 5)
     selected_classes = random.sample(range(n_classes), n_model_classes)
     train_indices = sample_indices(selected_classes, train_class_indices, samples_per_client)
     train_subset = Subset(trainset, train_indices)
-    train_loader = DataLoader(train_subset, batch_size=args.batch_size, shuffle=True, num_workers=2)
+    train_loader = DataLoader(train_subset, batch_size=batch_size, shuffle=True, num_workers=2)
     client_train_loaders.append(train_loader)
     print(f"  Model {i+1} will be trained on classes {selected_classes} with {len(train_indices)} samples.")
 
 client_test_loaders = []
 client_validation_loaders = []
 client_classes = []
-print(f"\n==> Generating {n_clients} unique datasets for client evaluation...")
+print(f"\n==> Generating {n_clients} datasets for client evaluation...")
 for i in range(n_clients):
     n_client_classes = random.randint(2, 5)
     selected_classes = random.sample(range(n_classes), n_client_classes)
@@ -105,18 +118,18 @@ for i in range(n_clients):
     final_test_indices = all_test_indices[split_point:]
 
     validation_subset = Subset(testset, validation_indices)
-    validation_loader = DataLoader(validation_subset, batch_size=args.batch_size, shuffle=False, num_workers=2)
+    validation_loader = DataLoader(validation_subset, batch_size=batch_size, shuffle=False, num_workers=2)
     client_validation_loaders.append(validation_loader)
 
     test_subset = Subset(testset, final_test_indices)
-    test_loader = DataLoader(test_subset, batch_size=args.batch_size, shuffle=False, num_workers=2)
+    test_loader = DataLoader(test_subset, batch_size=batch_size, shuffle=False, num_workers=2)
     client_test_loaders.append(test_loader)
     
     print(f"  Client {i+1} has data for classes {selected_classes}: "
           f"{len(validation_indices)} val samples, {len(final_test_indices)} test samples.")
 
 ensemble = [VGG('VGG19').to(device) for _ in range(n_models)]
-ensemble = train_ensembles_w_local_data(ensemble, client_train_loaders, device, n_epochs, 1.0, criterion, lr)
+ensemble = train_ensembles_w_local_data(ensemble, client_train_loaders, device, n_epochs, lambda_antireg, criterion, lr)
 
 if ensemble_selection_size > n_models:
     raise ValueError(f"ensemble_selection_size ({ensemble_selection_size}) cannot be larger than n_models ({n_models})")
@@ -175,14 +188,12 @@ def calculate_disagreement(model_f, model_g, ood_loader, device):
     with torch.no_grad():
         for inputs, _ in ood_loader:
             inputs = inputs.to(device)
-            #симметричная KL-дивергенция
             p_f = F.softmax(model_f(inputs), dim=1)
             p_g = F.softmax(model_g(inputs), dim=1)
             p_f = p_f.clamp(min=1e-7)
             p_g = p_g.clamp(min=1e-7)
-            kl_div_fg = F.kl_div(p_g.log(), p_f, reduction='batchmean')
-            kl_div_gf = F.kl_div(p_f.log(), p_g, reduction='batchmean')
-            disagreement = 0.5 * (kl_div_fg + kl_div_gf)
+
+            disagreement = F.kl_div(p_f.log(), p_g, reduction='batchmean')
 
             total_disagreement += disagreement.item()
             num_batches += 1
@@ -205,7 +216,7 @@ def select_uncertainty_aware_models(model_pool, num_to_select, client_test_loade
                 if k in selected_models: continue
                 total_disagreement = 0
                 for f in selected_models:
-                    # Для ускорения можно кэшировать результаты, но пока так
+                    # To speed up, we can later cache the results
                     total_disagreement += calculate_disagreement(f, k, ood_loader, device)           
                 avg_disagreement = total_disagreement / len(selected_models)
                 risk = model_risks[k_idx]
@@ -221,14 +232,13 @@ def select_uncertainty_aware_models(model_pool, num_to_select, client_test_loade
 
     return selected_models
 
-
-print("СРАВНЕНИЕ СТРАТЕГИЙ ВЫБОРА МОДЕЛЕЙ")
-print(f"Пул моделей (`ensemble`) состоит из {n_models} моделей.")
-print(f"Для каждого из {n_clients} клиентов будет выбран ансамбль из {ensemble_selection_size} моделей.")
-print(f"Гиперпараметр Lambda для Uncertainty-Aware: {LAMBDA}")
+print("MODEL SELECTION STRATEGIES COMPARISON")
+print(f"The model pool (`ensemble`) consists of {n_models} models.")
+print(f"For each of the {n_clients} clients, an ensemble of {ensemble_selection_size} models will be selected.")
+print(f"Lambda hyperparameter for Uncertainty-Aware: {lambda_disagreement}")
 
 for i in range(n_clients):
-    print(f"\n[Клиент {i+1}] (Классы: {client_classes[i]})")
+    print(f"\n[Client {i+1}] (Classes: {client_classes[i]})")
     client_val_loader = client_validation_loaders[i]
     client_final_test_loader = client_test_loaders[i]
 
@@ -236,19 +246,19 @@ for i in range(n_clients):
     ood_classes = [c for c in all_class_indices if c not in client_classes[i]]
     ood_indices = sample_indices(ood_classes, test_class_indices, samples_per_client // 4)
     ood_subset = Subset(testset, ood_indices)
-    ood_loader = DataLoader(ood_subset, batch_size=args.batch_size, shuffle=False, num_workers=2)
+    ood_loader = DataLoader(ood_subset, batch_size=batch_size, shuffle=False, num_workers=2)
 
-    print("  --- Стратегия: Случайный выбор (Random) ---")
+    print("  --- Strategy: Random Selection ---")
     selected_ensemble_random = random.sample(ensemble, ensemble_selection_size)
     accuracy_random = evaluate_selected_ensemble(selected_ensemble_random, client_final_test_loader, device, criterion)
-    print(f"  -> Точность ансамбля: {accuracy_random:.4f}%")
+    print(f"  -> Ensemble accuracy: {accuracy_random:.4f}%")
     
-    print("  --- Стратегия: Выбор по точности (Accuracy-only) ---")
+    print("  --- Strategy: Accuracy-only Selection ---")
     selected_ensemble_acc = select_accuracy_only_models(ensemble, ensemble_selection_size, client_val_loader, device)
     accuracy_acc = evaluate_selected_ensemble(selected_ensemble_acc, client_final_test_loader, device, criterion)
-    print(f"  -> Точность ансамбля: {accuracy_acc:.4f}%")
+    print(f"  -> Ensemble accuracy: {accuracy_acc:.4f}%")
 
-    print(f"  --- Стратегия: Uncertainty-Aware (lambda={LAMBDA}) ---")
-    selected_ensemble_unc = select_uncertainty_aware_models(ensemble, ensemble_selection_size, client_val_loader, ood_loader, LAMBDA, device, criterion)
+    print(f"  --- Strategy: Uncertainty-Aware (lambda={lambda_disagreement}) ---")
+    selected_ensemble_unc = select_uncertainty_aware_models(ensemble, ensemble_selection_size, client_val_loader, ood_loader, lambda_disagreement, device, criterion)
     accuracy_unc = evaluate_selected_ensemble(selected_ensemble_unc, client_final_test_loader, device, criterion)
-    print(f"  -> Точность ансамбля: {accuracy_unc:.4f}%")
+    print(f"  -> Ensemble accuracy: {accuracy_unc:.4f}%")

@@ -1,6 +1,6 @@
 clear
 CUDA_VISIBLE_DEVICES=6 uv run python ./federated_uncertainty_scripts/main_federated_ensembles.py \
-    --n_models 20 \
+    --n_models 30 \
     --n_clients 5 \
     --ensemble_selection_size 3 \
     --lambda_disagreement 0.1 \

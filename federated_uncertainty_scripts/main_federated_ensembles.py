@@ -96,13 +96,13 @@ print(f"\n==> Generating {n_models} datasets for model pool training...")
 model_train_loaders = []
 
 for i in range(n_models):
-    n_model_classes = random.randint(2, 5)
-    selected_classes = random.sample(range(n_classes), n_model_classes)
-    train_indices = sample_indices(selected_classes, train_class_indices, samples_per_model)
+    n_model_classes = random.randint(5, 8)
+    ind_classes = random.sample(range(n_classes), n_model_classes)
+    train_indices = sample_indices(ind_classes, train_class_indices, samples_per_model)
     train_subset = Subset(trainset, train_indices)
     train_loader = DataLoader(train_subset, batch_size=batch_size, shuffle=True, num_workers=2)
     model_train_loaders.append(train_loader)
-    print(f"  Model {i+1} will be trained on classes {selected_classes} with {len(train_indices)} samples.")
+    print(f"  Model {i+1} will be trained on classes {ind_classes} with {len(train_indices)} samples.")
 
 
 print(f"\n==> Generating {n_clients} datasets for client evaluation...")
@@ -124,9 +124,9 @@ for i in range(n_clients):
 
     # client_ind_train_loaders
     train_ind_indices = sample_indices(ind_classes, train_class_indices, samples_per_client)
-    train_ind_subset = Subset(trainset, train_indices)
-    train_ind_loader = DataLoader(train_subset, batch_size=batch_size, shuffle=True, num_workers=2)
-    client_ind_train_loaders.append(train_loader) # 1
+    train_ind_subset = Subset(trainset, train_ind_indices)
+    train_ind_loader = DataLoader(train_ind_subset, batch_size=batch_size, shuffle=True, num_workers=2)
+    client_ind_train_loaders.append(train_ind_loader) # 1
 
     random.shuffle(test_class_indices)
 

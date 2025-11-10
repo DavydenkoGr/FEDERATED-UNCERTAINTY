@@ -1,5 +1,5 @@
 clear
-CUDA_VISIBLE_DEVICES=6 python3 ./federated_uncertainty_scripts/test_train_with_selection_and_validation.py \
+CUDA_VISIBLE_DEVICES=6 uv run python ./federated_uncertainty_scripts/test_train_with_selection_and_validation.py \
     --n_models 20 \
     --n_clients 5 \
     --ensemble_selection_size 3 \

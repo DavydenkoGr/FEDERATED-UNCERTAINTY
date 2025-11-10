@@ -1,2 +1,2 @@
 clear
-CUDA_VISIBLE_DEVICES=6 python3 ./federated_uncertainty_scripts/test_train_vgg.py
+CUDA_VISIBLE_DEVICES=6 uv run python ./federated_uncertainty_scripts/test_train_vgg.py

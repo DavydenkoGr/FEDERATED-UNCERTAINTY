@@ -17,7 +17,6 @@ from torch.utils.data import DataLoader, Subset
 from federated_uncertainty.optim.train import train_ensembles_w_local_data
 from federated_uncertainty.randomness import set_all_seeds
 from federated_uncertainty.models import *
-from federated_uncertainty.eval import evaluate_single_model_accuracy, evaluate_selected_ensemble
 
 seed = 1
 set_all_seeds(seed)
@@ -32,11 +31,6 @@ parser.add_argument('--fraction', default=0.25, type=float, help='client and mod
 parser.add_argument('--n_epochs', default=5, type=int, help='number of training epoches')
 parser.add_argument('--batch_size', default=128, type=int, help='batch size')
 parser.add_argument('--lr', default=1e-3, type=float, help='learning rate for models')
-parser.add_argument('--model_pool_split_ratio', default=0.6, type=float, help='model/client data')
-parser.add_argument('--model_min_classes', default=5, type=int, help='min classes for model pool')
-parser.add_argument('--model_max_classes', default=8, type=int, help='max classes for model pool')
-parser.add_argument('--client_min_classes', default=2, type=int, help='min classes for clients')
-parser.add_argument('--client_max_classes', default=5, type=int, help='max classes for clients')
 args = parser.parse_args()
 
 # USE CUDA PREFFERED
@@ -52,11 +46,6 @@ fraction = args.fraction
 n_epochs = args.n_epochs
 lr = args.lr
 batch_size = args.batch_size
-model_pool_split_ratio = args.model_pool_split_ratio
-model_min_classes = args.model_min_classes
-model_max_classes = args.model_max_classes
-client_min_classes = args.client_min_classes
-client_max_classes = args.client_max_classes
 
 # FOR CIFAR10 ONLY
 n_classes = 10
@@ -90,30 +79,6 @@ def get_class_indices(dataset):
 train_class_indices = get_class_indices(trainset)
 test_class_indices = get_class_indices(testset)
 
-print('==> Splitting trainset into model_pool and client_data (stratified)...')
-
-model_pool_class_indices = {i: [] for i in range(n_classes)}
-client_data_class_indices = {i: [] for i in range(n_classes)}
-
-total_model_pool_indices_count = 0
-total_client_data_indices_count = 0
-
-for c in range(n_classes):
-    class_idx_list = train_class_indices[c]
-    random.shuffle(class_idx_list)
-    
-    split_point = int(len(class_idx_list) * model_pool_split_ratio)
-    
-    model_pool_class_indices[c] = class_idx_list[:split_point]
-    client_data_class_indices[c] = class_idx_list[split_point:]
-    
-    total_model_pool_indices_count += len(model_pool_class_indices[c])
-    total_client_data_indices_count += len(client_data_class_indices[c])
-
-print(f"  Total train data: {len(trainset)}")
-print(f"  Model pool data size: {total_model_pool_indices_count} ({(total_model_pool_indices_count/len(trainset)*100):.2f}%)")
-print(f"  Client data size: {total_client_data_indices_count} ({(total_client_data_indices_count/len(trainset)*100):.2f}%)")
-
 def sample_indices(selected_classes, class_indices, total_samples):
     per_class = total_samples // len(selected_classes) if len(selected_classes) > 0 else 0
     selected_indices = []
@@ -131,9 +96,9 @@ print(f"\n==> Generating {n_models} datasets for model pool training...")
 model_train_loaders = []
 
 for i in range(n_models):
-    n_model_classes = random.randint(model_min_classes, model_max_classes)
+    n_model_classes = random.randint(5, 8)
     ind_classes = random.sample(range(n_classes), n_model_classes)
-    train_indices = sample_indices(ind_classes, model_pool_class_indices, samples_per_model)
+    train_indices = sample_indices(ind_classes, train_class_indices, samples_per_model)
     train_subset = Subset(trainset, train_indices)
     train_loader = DataLoader(train_subset, batch_size=batch_size, shuffle=True, num_workers=2)
     model_train_loaders.append(train_loader)
@@ -145,16 +110,20 @@ print(f"\n==> Generating {n_clients} datasets for client evaluation...")
 client_classes = []
 
 client_ind_train_loaders = []
+
+client_ood_disagreement_loaders = []
 client_ood_test_loaders = []
+
+client_ind_calibration_loaders = []
 client_ind_test_loaders = []
 
 for i in range(n_clients):
-    n_client_classes = random.randint(client_min_classes, client_max_classes)
+    n_client_classes = random.randint(2, 5)
     ind_classes = random.sample(range(n_classes), n_client_classes)
     client_classes.append(ind_classes)
 
     # client_ind_train_loaders
-    train_ind_indices = sample_indices(ind_classes, client_data_class_indices, samples_per_client)
+    train_ind_indices = sample_indices(ind_classes, train_class_indices, samples_per_client)
     train_ind_subset = Subset(trainset, train_ind_indices)
     train_ind_loader = DataLoader(train_ind_subset, batch_size=batch_size, shuffle=True, num_workers=2)
     client_ind_train_loaders.append(train_ind_loader) # 1
@@ -163,28 +132,71 @@ for i in range(n_clients):
 
     ood_classes = [c for c in all_class_indices if c not in ind_classes]
 
-    # client_ood_test_loaders
+    # client_ood_disagreement_loaders & client_ood_test_loaders
     test_ood_indices = sample_indices(ood_classes, test_class_indices, len(testset))
 
-    test_ood_test_subset = Subset(testset, test_ood_indices)
-    test_ood_test_loader = DataLoader(test_ood_test_subset, batch_size=batch_size, shuffle=True, num_workers=2)
-    client_ood_test_loaders.append(test_ood_test_loader)
+    # split in two parts
+    split_point = len(test_ood_indices) // 2
+    test_ood_disagreement_indices = test_ood_indices[:split_point]
+    test_ood_test_indices = test_ood_indices[split_point:]
 
-    # client_ind_test_loaders
+    test_ood_disagreement_subset = Subset(testset, test_ood_disagreement_indices)
+    test_ood_disagreement_loader = DataLoader(test_ood_disagreement_subset, batch_size=batch_size, shuffle=True, num_workers=2)
+    client_ood_disagreement_loaders.append(test_ood_disagreement_loader) # 2
+
+    test_ood_test_subset = Subset(testset, test_ood_test_indices)
+    test_ood_test_loader = DataLoader(test_ood_test_subset, batch_size=batch_size, shuffle=True, num_workers=2)
+    client_ood_test_loaders.append(test_ood_test_loader) # 3
+
+    # client_ind_calibration_loaders & client_ind_test_loaders
     test_ind_indices = sample_indices(ind_classes, test_class_indices, len(testset))
 
-    test_ind_test_subset = Subset(testset, test_ind_indices)
+    # split in two parts
+    split_point = len(test_ind_indices) // 2
+    test_ind_calibration_indices = test_ind_indices[:split_point]
+    test_ind_test_indices = test_ind_indices[split_point:]
+
+    test_ind_calibration_subset = Subset(testset, test_ind_calibration_indices)
+    test_ind_calibration_loader = DataLoader(test_ind_calibration_subset, batch_size=batch_size, shuffle=True, num_workers=2)
+    client_ind_calibration_loaders.append(test_ind_calibration_loader) # 4
+
+    test_ind_test_subset = Subset(testset, test_ind_test_indices)
     test_ind_test_loader = DataLoader(test_ind_test_subset, batch_size=batch_size, shuffle=True, num_workers=2)
-    client_ind_test_loaders.append(test_ind_test_loader)
+    client_ind_test_loaders.append(test_ind_test_loader) # 5
     
     print(f"  Client {i+1} has data for classes {ind_classes}: "
-          f"{len(train_ind_indices)} train samples, {len(test_ood_indices)} ood test samples, {len(test_ind_indices)} ind test samples.")
+          f"{len(train_ind_indices)} train samples, {len(test_ood_indices)} ood test samples.")
 
 ensemble = [VGG('VGG19').to(device) for _ in range(n_models)]
 ensemble = train_ensembles_w_local_data(ensemble, model_train_loaders, device, n_epochs, lambda_antireg, criterion, lr)
 
 if ensemble_selection_size > n_models:
     raise ValueError(f"ensemble_selection_size ({ensemble_selection_size}) cannot be larger than n_models ({n_models})")
+
+def evaluate_selected_ensemble(selected_ensemble, test_loader, device, criterion):
+    for model in selected_ensemble: model.eval()
+    correct, total = 0, 0
+    with torch.no_grad():
+        for inputs, targets in test_loader:
+            inputs, targets = inputs.to(device), targets.to(device)
+            all_outputs = [model(inputs) for model in selected_ensemble]
+            avg_outputs = torch.mean(torch.stack(all_outputs), dim=0)
+            _, predicted = avg_outputs.max(1)
+            total += targets.size(0)
+            correct += predicted.eq(targets).sum().item()
+    return 100. * correct / total 
+
+def evaluate_single_model_accuracy(model, test_loader, device):
+    model.eval()
+    correct, total = 0, 0
+    with torch.no_grad():
+        for inputs, targets in test_loader:
+            inputs, targets = inputs.to(device), targets.to(device)
+            outputs = model(inputs)
+            _, predicted = outputs.max(1)
+            total += targets.size(0)
+            correct += predicted.eq(targets).sum().item()
+    return 100. * correct / total
 
 def select_accuracy_only_models(model_pool, num_to_select, client_test_loader, device):
     model_accuracies = []
@@ -268,8 +280,15 @@ for i in range(n_clients):
     print(f"\n[Client {i+1}] (Classes: {client_classes[i]})")
 
     client_ind_train_loader = client_ind_train_loaders[i]
+    client_ood_disagreement_loader = client_ood_disagreement_loaders[i]
     client_ood_test_loader = client_ood_test_loaders[i]
+    client_ind_calibration_loader = client_ind_calibration_loaders[i]
     client_ind_test_loader = client_ind_test_loaders[i]
+
+    ood_classes = [c for c in all_class_indices if c not in client_classes[i]]
+    ood_indices = sample_indices(ood_classes, test_class_indices, len(testset))
+    ood_subset = Subset(testset, ood_indices)
+    ood_loader = DataLoader(ood_subset, batch_size=batch_size, shuffle=False, num_workers=2)
 
     print("  --- Strategy: Random Selection ---")
     selected_ensemble_random = random.sample(ensemble, ensemble_selection_size)
@@ -282,6 +301,6 @@ for i in range(n_clients):
     print(f"  -> Ensemble accuracy: {accuracy_acc:.4f}%")
 
     print(f"  --- Strategy: Uncertainty-Aware (lambda={lambda_disagreement}) ---")
-    selected_ensemble_unc = select_uncertainty_aware_models(ensemble, ensemble_selection_size, client_ind_train_loader, client_ood_test_loader, lambda_disagreement, device, criterion) # <-- ИСПОЛЬЗУЕМ ЕДИНЫЙ OOD
+    selected_ensemble_unc = select_uncertainty_aware_models(ensemble, ensemble_selection_size, client_ind_train_loader, client_ood_disagreement_loader, lambda_disagreement, device, criterion)
     accuracy_unc = evaluate_selected_ensemble(selected_ensemble_unc, client_ind_test_loader, device, criterion)
     print(f"  -> Ensemble accuracy: {accuracy_unc:.4f}%")

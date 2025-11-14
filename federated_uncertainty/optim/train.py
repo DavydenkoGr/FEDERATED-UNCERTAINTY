@@ -4,6 +4,7 @@ from torch.utils.data import TensorDataset, DataLoader
 from tqdm.auto import tqdm
 import torch.optim as optim
 from mdu.optim.regularizers import compute_anti_regularization
+from federated_uncertainty.eval import evaluate_single_model_accuracy
 
 
 def train_ensembles(
@@ -99,6 +100,7 @@ def train_ensembles_w_local_data(
     n_members = len(models)
 
     for i, model in tqdm(enumerate(models)):
+        model.train()
         optimizer = optim.AdamW(model.parameters(), lr=lr)
 
         print(f"\nTraining model {i + 1}/{n_members}")
@@ -121,6 +123,9 @@ def train_ensembles_w_local_data(
                 epoch_losses.append(total_loss.item())
             mean_loss = sum(epoch_losses) / len(epoch_losses)
             if (epoch + 1) % 5 == 0 or epoch == n_epochs - 1:
-                print(f"  Epoch {epoch + 1}/{n_epochs} - Mean Loss: {mean_loss:.4f}")
+                model.eval()
+                accuracy = evaluate_single_model_accuracy(model, train_loaders[i], device)
+                print(f"  Epoch {epoch + 1}/{n_epochs} - Mean Loss: {mean_loss:.4f} - Acc: {accuracy:.4f}")
+                model.train()
 
     return models

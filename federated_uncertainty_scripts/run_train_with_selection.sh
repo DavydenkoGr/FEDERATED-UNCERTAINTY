@@ -1,2 +1,0 @@
-clear
-CUDA_VISIBLE_DEVICES=6 uv run python ./federated_uncertainty_scripts/test_train_with_selection.py

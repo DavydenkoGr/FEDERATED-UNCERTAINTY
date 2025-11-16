@@ -1,6 +1,7 @@
 import sys
 import argparse
 from pathlib import Path
+import datetime
 
 # project root = parent of "scripts"
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,6 +38,7 @@ parser.add_argument('--model_min_classes', default=5, type=int, help='min classe
 parser.add_argument('--model_max_classes', default=8, type=int, help='max classes for model pool')
 parser.add_argument('--client_min_classes', default=2, type=int, help='min classes for clients')
 parser.add_argument('--client_max_classes', default=5, type=int, help='max classes for clients')
+parser.add_argument('--save_dir', default=f'./data/saved_models/run_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}', type=str, help='Path to save/load ensemble models')
 args = parser.parse_args()
 
 # USE CUDA PREFFERED
@@ -46,7 +48,7 @@ device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("
 n_models = args.n_models
 n_clients = args.n_clients
 ensemble_selection_size = args.ensemble_selection_size
-lambda_disagreement = args.lambda_disagreement # for Uncertainty-Aware
+lambda_disagreement = args.lambda_disagreement
 lambda_antireg = args.lambda_antireg
 fraction = args.fraction
 n_epochs = args.n_epochs
@@ -57,6 +59,7 @@ model_min_classes = args.model_min_classes
 model_max_classes = args.model_max_classes
 client_min_classes = args.client_min_classes
 client_max_classes = args.client_max_classes
+save_dir = args.save_dir
 
 # FOR CIFAR10 ONLY
 n_classes = 10
@@ -125,7 +128,6 @@ def sample_indices(selected_classes, class_indices, total_samples):
 samples_per_model = int(len(trainset) * fraction)
 samples_per_client = int(len(trainset) * fraction)
 
-
 print(f"\n==> Generating {n_models} datasets for model pool training...")
 
 model_train_loaders = []
@@ -137,8 +139,7 @@ for i in range(n_models):
     train_subset = Subset(trainset, train_indices)
     train_loader = DataLoader(train_subset, batch_size=batch_size, shuffle=True, num_workers=2)
     model_train_loaders.append(train_loader)
-    print(f"  Model {i+1} will be trained on classes {ind_classes} with {len(train_indices)} samples.")
-
+    print(f"  Model {i + 1} will be trained on classes {ind_classes} with {len(train_indices)} samples.")
 
 print(f"\n==> Generating {n_clients} datasets for client evaluation...")
 
@@ -157,9 +158,7 @@ for i in range(n_clients):
     train_ind_indices = sample_indices(ind_classes, client_data_class_indices, samples_per_client)
     train_ind_subset = Subset(trainset, train_ind_indices)
     train_ind_loader = DataLoader(train_ind_subset, batch_size=batch_size, shuffle=True, num_workers=2)
-    client_ind_train_loaders.append(train_ind_loader) # 1
-
-    random.shuffle(test_class_indices)
+    client_ind_train_loaders.append(train_ind_loader)
 
     ood_classes = [c for c in all_class_indices if c not in ind_classes]
 
@@ -177,22 +176,65 @@ for i in range(n_clients):
     test_ind_test_loader = DataLoader(test_ind_test_subset, batch_size=batch_size, shuffle=True, num_workers=2)
     client_ind_test_loaders.append(test_ind_test_loader)
     
-    print(f"  Client {i+1} has data for classes {ind_classes}: "
+    print(f"  Client {i + 1} has data for classes {ind_classes}: "
           f"{len(train_ind_indices)} train samples, {len(test_ood_indices)} ood test samples, {len(test_ind_indices)} ind test samples.")
 
+print('\n==> Preparing ensemble path and checking for existing models...')
+
+run_dir = Path(save_dir)
+model_file_path = run_dir / 'ensemble.pt'
+
+model_file_path.parent.mkdir(parents=True, exist_ok=True)
+
 ensemble = [VGG('VGG19').to(device) for _ in range(n_models)]
-ensemble = train_ensembles_w_local_data(ensemble, model_train_loaders, device, n_epochs, lambda_antireg, criterion, lr)
+ensemble_state_dicts = None
+
+if model_file_path.exists():
+    try:
+        ensemble_state_dicts = torch.load(model_file_path)
+        print(f"  Ensemble loaded from {model_file_path}.")
+    except Exception as e:
+        print(f"  Warning: Could not load models from {model_file_path}. Error: {e}")
+        ensemble_state_dicts = None
+
+if ensemble_state_dicts is not None:
+    if len(ensemble_state_dicts) == n_models:
+        for model, state_dict in zip(ensemble, ensemble_state_dicts):
+            model.load_state_dict(state_dict)
+    else:
+        print(f"  Warning: Expected {n_models} models, but loaded {len(ensemble_state_dicts)}. Retraining.")
+        ensemble_state_dicts = None
+
+if ensemble_state_dicts is None:
+    print("  Training ensemble from scratch...")
+    
+    ensemble = train_ensembles_w_local_data(
+        ensemble, 
+        model_train_loaders, 
+        device, 
+        n_epochs, 
+        lambda_antireg,
+        criterion,
+        lr
+    )
+
+    state_dicts_to_save = [model.state_dict() for model in ensemble]
+    torch.save(state_dicts_to_save, model_file_path)
+    print(f"  Ensemble successfully trained and saved to {model_file_path}.")
 
 if ensemble_selection_size > n_models:
     raise ValueError(f"ensemble_selection_size ({ensemble_selection_size}) cannot be larger than n_models ({n_models})")
 
 def select_accuracy_only_models(model_pool, num_to_select, client_test_loader, device):
-    model_accuracies = []
-    for model in model_pool:
+    accuracies = []
+
+    for i, model in enumerate(model_pool):
         acc = evaluate_single_model_accuracy(model, client_test_loader, device)
-        model_accuracies.append((acc, model))
-    model_accuracies.sort(key=lambda x: x[0], reverse=True)
-    return [model for acc, model in model_accuracies[:num_to_select]]
+        accuracies.append((acc, i))
+
+    accuracies.sort(key=lambda x: x[0], reverse=True)
+
+    return [idx for acc, idx in accuracies[:num_to_select]]
 
 def calculate_local_risk(model, data_loader, device, criterion):
     model.eval()
@@ -226,38 +268,56 @@ def calculate_disagreement(model_f, model_g, ood_loader, device):
             num_batches += 1
     return total_disagreement / num_batches if num_batches > 0 else 0
 
-def select_uncertainty_aware_models(model_pool, num_to_select, client_test_loader, ood_loader, lambda_val, device, criterion):
-    selected_models = []
-    candidate_models = list(model_pool)
-    model_risks = {model_idx: calculate_local_risk(model, client_test_loader, device, criterion) 
-                   for model_idx, model in enumerate(candidate_models)}
+def select_uncertainty_aware_models(
+        model_pool,
+        num_to_select,
+        client_test_loader,
+        ood_loader,
+        lambda_val,
+        device,
+        criterion):
+
+    candidate_indices = list(range(len(model_pool)))
+
+    model_risks = {
+        idx: calculate_local_risk(model_pool[idx], client_test_loader, device, criterion)
+        for idx in candidate_indices
+    }
+
+    selected_indices = []
 
     for step in range(num_to_select):
-        best_candidate = None
-        min_score = float('inf')
-        if not selected_models:
-            best_candidate_idx = min(model_risks, key=model_risks.get)
-            best_candidate = candidate_models[best_candidate_idx]
+        best_idx = None
+        best_score = float('inf')
+
+        if not selected_indices:
+            best_idx = min(model_risks, key=model_risks.get)
         else:
-            for k_idx, k in enumerate(candidate_models):
-                if k in selected_models: continue
+            for k_idx in candidate_indices:
+                if k_idx in selected_indices:
+                    continue
+
                 total_disagreement = 0
-                for f in selected_models:
-                    # To speed up, we can later cache the results
-                    total_disagreement += calculate_disagreement(f, k, ood_loader, device)           
-                avg_disagreement = total_disagreement / len(selected_models)
+                for f_idx in selected_indices:
+                    total_disagreement += calculate_disagreement(
+                        model_pool[f_idx],
+                        model_pool[k_idx],
+                        ood_loader,
+                        device
+                    )
+
+                avg_disagreement = total_disagreement / len(selected_indices)
                 risk = model_risks[k_idx]
                 score = risk - lambda_val * avg_disagreement
-                
-                if score < min_score:
-                    min_score = score
-                    best_candidate = k
-        
-        if best_candidate:
-            selected_models.append(best_candidate)
-            candidate_models.remove(best_candidate)
 
-    return selected_models
+                if score < best_score:
+                    best_score = score
+                    best_idx = k_idx
+
+        selected_indices.append(best_idx)
+        candidate_indices.remove(best_idx)
+
+    return selected_indices
 
 print("MODEL SELECTION STRATEGIES COMPARISON")
 print(f"The model pool (`ensemble`) consists of {n_models} models.")
@@ -265,23 +325,44 @@ print(f"For each of the {n_clients} clients, an ensemble of {ensemble_selection_
 print(f"Lambda hyperparameter for Uncertainty-Aware: {lambda_disagreement}")
 
 for i in range(n_clients):
-    print(f"\n[Client {i+1}] (Classes: {client_classes[i]})")
+    print(f"\n[Client {i + 1}] (Classes: {client_classes[i]})")
 
     client_ind_train_loader = client_ind_train_loaders[i]
     client_ood_test_loader = client_ood_test_loaders[i]
     client_ind_test_loader = client_ind_test_loaders[i]
 
+    # Random Selection
     print("  --- Strategy: Random Selection ---")
-    selected_ensemble_random = random.sample(ensemble, ensemble_selection_size)
+    ensemble_random_indices = random.sample(range(n_models), ensemble_selection_size)
+    selected_ensemble_random = [ensemble[i] for i in ensemble_random_indices]
+    print(f"  -> Selected models: {ensemble_random_indices}")
+
     accuracy_random = evaluate_selected_ensemble(selected_ensemble_random, client_ind_test_loader, device, criterion)
+    for i, model in enumerate(selected_ensemble_random):
+        accuracy_model = evaluate_single_model_accuracy(model, client_ind_test_loader, device)
+        print(f"  -> Model[{i + 1}] accuracy: {accuracy_model:.4f}%")
     print(f"  -> Ensemble accuracy: {accuracy_random:.4f}%")
     
-    print("  --- Strategy: Accuracy-only Selection ---")
-    selected_ensemble_acc = select_accuracy_only_models(ensemble, ensemble_selection_size, client_ind_train_loader, device)
-    accuracy_acc = evaluate_selected_ensemble(selected_ensemble_acc, client_ind_test_loader, device, criterion)
-    print(f"  -> Ensemble accuracy: {accuracy_acc:.4f}%")
+    # Accuracy-only Selection
+    print("\n  --- Strategy: Accuracy-only Selection ---")
+    ensemble_acc_indices = select_accuracy_only_models(ensemble, ensemble_selection_size, client_ind_train_loader, device)
+    selected_ensemble_acc = [ensemble[i] for i in ensemble_acc_indices]
+    print(f"  -> Selected models: {ensemble_acc_indices}")
 
-    print(f"  --- Strategy: Uncertainty-Aware (lambda={lambda_disagreement}) ---")
-    selected_ensemble_unc = select_uncertainty_aware_models(ensemble, ensemble_selection_size, client_ind_train_loader, client_ood_test_loader, lambda_disagreement, device, criterion) # <-- ИСПОЛЬЗУЕМ ЕДИНЫЙ OOD
+    accuracy_acc = evaluate_selected_ensemble(selected_ensemble_acc, client_ind_test_loader, device, criterion)
+    for i, model in enumerate(selected_ensemble_acc):
+        accuracy_model = evaluate_single_model_accuracy(model, client_ind_test_loader, device)
+        print(f"  -> Model[{i + 1}] accuracy: {accuracy_model:.4f}%")
+    print(f"    -> Ensemble accuracy: {accuracy_acc:.4f}%")
+
+    # Uncertainty-Aware
+    print(f"\n  --- Strategy: Uncertainty-Aware (lambda={lambda_disagreement}) ---")
+    ensemble_unc_indices = select_uncertainty_aware_models(ensemble, ensemble_selection_size, client_ind_train_loader, client_ood_test_loader, lambda_disagreement, device, criterion)
+    selected_ensemble_unc = [ensemble[i] for i in ensemble_unc_indices]
+    print(f"  -> Selected models: {ensemble_unc_indices}")
+
     accuracy_unc = evaluate_selected_ensemble(selected_ensemble_unc, client_ind_test_loader, device, criterion)
-    print(f"  -> Ensemble accuracy: {accuracy_unc:.4f}%")
+    for i, model in enumerate(selected_ensemble_unc):
+        accuracy_model = evaluate_single_model_accuracy(model, client_ind_test_loader, device)
+        print(f"  -> Model[{i + 1}] accuracy: {accuracy_model:.4f}%")
+    print(f"    -> Ensemble accuracy: {accuracy_unc:.4f}%")

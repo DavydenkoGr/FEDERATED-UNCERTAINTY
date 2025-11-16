@@ -8,4 +8,5 @@ CUDA_VISIBLE_DEVICES=2 python3 ./federated_uncertainty_scripts/main_federated_en
     --fraction 0.5 \
     --n_epochs 5 \
     --batch_size 128 \
-    --lr 1e-4
+    --lr 1e-4 \
+    --save_dir "./data/saved_models/run_20251116_132306"

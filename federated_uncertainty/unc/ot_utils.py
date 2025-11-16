@@ -2,7 +2,7 @@ import numpy as np
 from scipy.stats import qmc
 import ot
 
-from mdu.unc.constants import SamplingMethod
+from federated_uncertainty.unc.constants import SamplingMethod
 
 
 def sinkhorn_potentials_pot(

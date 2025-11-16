@@ -2,8 +2,8 @@ from typing import Tuple, Optional, Dict, Any
 from scipy.special import betainc
 import numpy as np
 
-from mdu.unc.constants import OTTarget, SamplingMethod, ScalingType
-from mdu.unc.ot_utils import (
+from federated_uncertainty.unc.constants import OTTarget, SamplingMethod, ScalingType
+from federated_uncertainty.unc.ot_utils import (
     sample_uniform_random,
     sample_uniform_sobol,
     sample_uniform_grid,
@@ -12,7 +12,7 @@ from mdu.unc.ot_utils import (
     transform_to_beta,
     generate_unit_hypercube_grid_nodes,
 )
-from mdu.data.scalers import GlobalMinMaxScaler, IdentityScaler
+from federated_uncertainty.data.scalers import GlobalMinMaxScaler, IdentityScaler
 from sklearn.preprocessing import MinMaxScaler
 
 

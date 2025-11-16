@@ -341,7 +341,7 @@ for i in range(n_clients):
     for i, model in enumerate(selected_ensemble_random):
         accuracy_model = evaluate_single_model_accuracy(model, client_ind_test_loader, device)
         print(f"  -> Model[{i + 1}] accuracy: {accuracy_model:.4f}%")
-    print(f"  -> Ensemble accuracy: {accuracy_random:.4f}%")
+    print(f"   -> Ensemble accuracy: {accuracy_random:.4f}%")
     
     # Accuracy-only Selection
     print("\n  --- Strategy: Accuracy-only Selection ---")

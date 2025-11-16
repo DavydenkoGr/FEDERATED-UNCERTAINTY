@@ -3,7 +3,7 @@ import torch
 from torch.utils.data import TensorDataset, DataLoader
 from tqdm.auto import tqdm
 import torch.optim as optim
-from mdu.optim.regularizers import compute_anti_regularization
+from federated_uncertainty.optim.regularizers import compute_anti_regularization
 from federated_uncertainty.eval import evaluate_single_model_accuracy
 
 

@@ -1,10 +1,10 @@
 from typing import List, Dict, Any, Optional, Sequence
 import numpy as np
-from mdu.unc.risk_metrics.create_specific_risks import get_risk_approximation
-from mdu.unc.risk_metrics.constants import RiskType
-from mdu.unc.general_metrics.mahalanobis import MahalanobisDistance
-from mdu.unc.general_metrics.gmm import GMM
-from mdu.unc.constants import UncertaintyType
+from federated_uncertainty.unc.risk_metrics.create_specific_risks import get_risk_approximation
+from federated_uncertainty.unc.risk_metrics.constants import RiskType
+from federated_uncertainty.unc.general_metrics.mahalanobis import MahalanobisDistance
+from federated_uncertainty.unc.general_metrics.gmm import GMM
+from federated_uncertainty.unc.constants import UncertaintyType
 
 
 class UncertaintyEstimator:

@@ -684,7 +684,7 @@ def evaluate_single_model_accuracy(model, test_loader, device):
             _, predicted = outputs.max(1)
             total += targets.size(0)
             correct += predicted.eq(targets).sum().item()
-    return 100. * correct / total
+    return correct / total
 
 
 def evaluate_selected_ensemble(selected_ensemble, test_loader, device, criterion):
@@ -698,4 +698,4 @@ def evaluate_selected_ensemble(selected_ensemble, test_loader, device, criterion
             _, predicted = avg_outputs.max(1)
             total += targets.size(0)
             correct += predicted.eq(targets).sum().item()
-    return 100. * correct / total
+    return correct / total

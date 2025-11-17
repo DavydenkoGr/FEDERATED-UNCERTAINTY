@@ -26,7 +26,7 @@ set_all_seeds(seed)
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--n_models', default=20, type=int, help='number of models')
 parser.add_argument('--n_clients', default=5, type=int, help='number of clients')
-parser.add_argument('--ensemble_selection_size', default=3, type=int, help='number of models for single client')
+parser.add_argument('--ensemble_size', default=3, type=int, help='number of models for single client')
 parser.add_argument('--lambda_disagreement', default=0.1, type=float, help='disagreement importance')
 parser.add_argument('--lambda_antireg', default=0.01, type=float, help='antiregularization coefficient')
 parser.add_argument('--fraction', default=0.25, type=float, help='client and model part of train data')
@@ -47,7 +47,7 @@ device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("
 # command line arguments
 n_models = args.n_models
 n_clients = args.n_clients
-ensemble_selection_size = args.ensemble_selection_size
+ensemble_size = args.ensemble_size
 lambda_disagreement = args.lambda_disagreement
 lambda_antireg = args.lambda_antireg
 fraction = args.fraction
@@ -222,8 +222,8 @@ if ensemble_state_dicts is None:
     torch.save(state_dicts_to_save, model_file_path)
     print(f"  Ensemble successfully trained and saved to {model_file_path}.")
 
-if ensemble_selection_size > n_models:
-    raise ValueError(f"ensemble_selection_size ({ensemble_selection_size}) cannot be larger than n_models ({n_models})")
+if ensemble_size > n_models:
+    raise ValueError(f"ensemble_size ({ensemble_size}) cannot be larger than n_models ({n_models})")
 
 def select_accuracy_only_models(model_pool, num_to_select, client_test_loader, device):
     accuracies = []
@@ -319,50 +319,141 @@ def select_uncertainty_aware_models(
 
     return selected_indices
 
+# Logits saving
+def get_logits(models, data_loader, device):
+    # Aggregate logits for all samples from ensemble models
+    all_logits = []
+    with torch.no_grad():
+        for inputs, _ in data_loader:
+            inputs = inputs.to(device)
+            # Collect logits from each model in the ensemble
+            batch_logits = torch.stack([model(inputs) for model in models], dim=0)  # shape: (ensemble_size, batch, classes)
+            all_logits.append(batch_logits.cpu())
+    # Concatenate all batches: shape (ensemble_size, total_samples, classes)
+    return torch.cat(all_logits, dim=1)
+
+# Labels saving
+def get_labels(data_loader):
+    # Assuming data_loader.dataset is a Subset wrapping the original dataset with targets accessible
+    dataset = data_loader.dataset
+    if isinstance(dataset, torch.utils.data.Subset):
+        indices = dataset.indices
+        # Original dataset assumed to have attribute 'targets' (CIFAR10 does)
+        labels = [dataset.dataset.targets[i] for i in indices]
+    else:
+        # If direct dataset, just return targets
+        labels = dataset.targets
+    return torch.tensor(labels)
+
+
+def save_logits_and_labels(selected_models, ind_loader, ood_loader, client_num, strategy, device):
+    ind_logits = get_logits(selected_models, ind_loader, device)
+    ood_logits = get_logits(selected_models, ood_loader, device)
+
+    y_ind = get_labels(ind_loader)
+    y_ood = get_labels(ood_loader)
+
+    # Save logits and labels for later use
+    logits_ind_path = run_dir / "logits" / f"client_{client_num}" / f"{strategy}_ind.pt"
+    logits_ood_path = run_dir / "logits" / f"client_{client_num}" / f"{strategy}_ood.pt"
+    labels_ind_path = run_dir / "labels" / f"client_{client_num}" / f"{strategy}_ind.pt"
+    labels_ood_path = run_dir / "labels" / f"client_{client_num}" / f"{strategy}_ood.pt"
+
+    logits_ind_path.parent.mkdir(parents=True, exist_ok=True)
+    labels_ind_path.parent.mkdir(parents=True, exist_ok=True)
+
+    torch.save(ind_logits, logits_ind_path)
+    torch.save(ood_logits, logits_ood_path)
+    torch.save(y_ind, labels_ind_path)
+    torch.save(y_ood, labels_ood_path)
+
+    print(f"Saved client {client_num} logits and labels to:  {run_dir}")
+
+def select_and_evaluate_models(
+    strategy,
+    ensemble,
+    client_ind_train_loader,
+    client_ood_test_loader,
+    client_ind_test_loader,
+    client_num,
+    device,
+    criterion,
+):
+    import random
+
+    if strategy == "random":
+        print("  --- Strategy: Random Selection ---")
+        ensemble_indices = random.sample(range(n_models), ensemble_size)
+    elif strategy == "accuracy":
+        print("\n  --- Strategy: Accuracy-only Selection ---")
+        ensemble_indices = select_accuracy_only_models(
+            ensemble, ensemble_size, client_ind_train_loader, device
+        )
+    elif strategy == "uncertainty":
+        print(f"\n  --- Strategy: Uncertainty-Aware (lambda={lambda_disagreement}) ---")
+        ensemble_indices = select_uncertainty_aware_models(
+            ensemble,
+            ensemble_size,
+            client_ind_train_loader,
+            client_ood_test_loader,
+            lambda_disagreement,
+            device,
+            criterion,
+        )
+    else:
+        raise ValueError(f"Unknown strategy '{strategy}'. Choose from random, accuracy, uncertainty.")
+    
+    selected_ensemble = [ensemble[i] for i in ensemble_indices]
+    print(f"  -> Selected models: {ensemble_indices}")
+
+    accuracy = evaluate_selected_ensemble(selected_ensemble, client_ind_test_loader, device, criterion)
+    for i, model in enumerate(selected_ensemble):
+        accuracy_model = evaluate_single_model_accuracy(model, client_ind_test_loader, device)
+        print(f"  -> Model[{i + 1}] accuracy: {accuracy_model:.4f}")
+    print(f"    -> Ensemble accuracy: {accuracy:.4f}")
+
+    save_logits_and_labels(selected_ensemble, client_ind_test_loader, client_ood_test_loader, client_num, strategy, device)
+
+    return selected_ensemble, ensemble_indices
+
+
 print("MODEL SELECTION STRATEGIES COMPARISON")
 print(f"The model pool (`ensemble`) consists of {n_models} models.")
-print(f"For each of the {n_clients} clients, an ensemble of {ensemble_selection_size} models will be selected.")
+print(f"For each of the {n_clients} clients, an ensemble of {ensemble_size} models will be selected.")
 print(f"Lambda hyperparameter for Uncertainty-Aware: {lambda_disagreement}")
 
 for i in range(n_clients):
     print(f"\n[Client {i + 1}] (Classes: {client_classes[i]})")
 
-    client_ind_train_loader = client_ind_train_loaders[i]
-    client_ood_test_loader = client_ood_test_loaders[i]
-    client_ind_test_loader = client_ind_test_loaders[i]
+    selected_ensemble_random, indices_random = select_and_evaluate_models(
+        "random",
+        ensemble,
+        client_ind_train_loaders[i],
+        client_ood_test_loaders[i],
+        client_ind_test_loaders[i],
+        i + 1,
+        device,
+        criterion,
+    )
 
-    # Random Selection
-    print("  --- Strategy: Random Selection ---")
-    ensemble_random_indices = random.sample(range(n_models), ensemble_selection_size)
-    selected_ensemble_random = [ensemble[i] for i in ensemble_random_indices]
-    print(f"  -> Selected models: {ensemble_random_indices}")
+    selected_ensemble_acc, indices_acc = select_and_evaluate_models(
+        "accuracy",
+        ensemble,
+        client_ind_train_loaders[i],
+        client_ood_test_loaders[i],
+        client_ind_test_loaders[i],
+        i + 1,
+        device,
+        criterion,
+    )
 
-    accuracy_random = evaluate_selected_ensemble(selected_ensemble_random, client_ind_test_loader, device, criterion)
-    for i, model in enumerate(selected_ensemble_random):
-        accuracy_model = evaluate_single_model_accuracy(model, client_ind_test_loader, device)
-        print(f"  -> Model[{i + 1}] accuracy: {accuracy_model:.4f}%")
-    print(f"   -> Ensemble accuracy: {accuracy_random:.4f}%")
-    
-    # Accuracy-only Selection
-    print("\n  --- Strategy: Accuracy-only Selection ---")
-    ensemble_acc_indices = select_accuracy_only_models(ensemble, ensemble_selection_size, client_ind_train_loader, device)
-    selected_ensemble_acc = [ensemble[i] for i in ensemble_acc_indices]
-    print(f"  -> Selected models: {ensemble_acc_indices}")
-
-    accuracy_acc = evaluate_selected_ensemble(selected_ensemble_acc, client_ind_test_loader, device, criterion)
-    for i, model in enumerate(selected_ensemble_acc):
-        accuracy_model = evaluate_single_model_accuracy(model, client_ind_test_loader, device)
-        print(f"  -> Model[{i + 1}] accuracy: {accuracy_model:.4f}%")
-    print(f"    -> Ensemble accuracy: {accuracy_acc:.4f}%")
-
-    # Uncertainty-Aware
-    print(f"\n  --- Strategy: Uncertainty-Aware (lambda={lambda_disagreement}) ---")
-    ensemble_unc_indices = select_uncertainty_aware_models(ensemble, ensemble_selection_size, client_ind_train_loader, client_ood_test_loader, lambda_disagreement, device, criterion)
-    selected_ensemble_unc = [ensemble[i] for i in ensemble_unc_indices]
-    print(f"  -> Selected models: {ensemble_unc_indices}")
-
-    accuracy_unc = evaluate_selected_ensemble(selected_ensemble_unc, client_ind_test_loader, device, criterion)
-    for i, model in enumerate(selected_ensemble_unc):
-        accuracy_model = evaluate_single_model_accuracy(model, client_ind_test_loader, device)
-        print(f"  -> Model[{i + 1}] accuracy: {accuracy_model:.4f}%")
-    print(f"    -> Ensemble accuracy: {accuracy_unc:.4f}%")
+    selected_ensemble_unc, indices_unc = select_and_evaluate_models(
+        "uncertainty",
+        ensemble,
+        client_ind_train_loaders[i],
+        client_ood_test_loaders[i],
+        client_ind_test_loaders[i],
+        i + 1,
+        device,
+        criterion,
+    )

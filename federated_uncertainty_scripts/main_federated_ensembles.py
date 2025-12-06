@@ -2,22 +2,23 @@ import sys
 import argparse
 from pathlib import Path
 import datetime
+import random
+import copy
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torchvision
+import torchvision.transforms as transforms
+from torch.utils.data import DataLoader, Subset
 
 # project root = parent of "scripts"
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torchvision
-import torchvision.transforms as transforms
-import random
-from torch.utils.data import DataLoader, Subset
 from federated_uncertainty.optim.train import train_ensembles_w_local_data
 from federated_uncertainty.randomness import set_all_seeds
-from federated_uncertainty.models import *
+from federated_uncertainty.models import VGG
 from federated_uncertainty.eval import evaluate_single_model_accuracy, evaluate_selected_ensemble
 
 seed = 1
@@ -38,7 +39,13 @@ parser.add_argument('--model_min_classes', default=5, type=int, help='min classe
 parser.add_argument('--model_max_classes', default=8, type=int, help='max classes for model pool')
 parser.add_argument('--client_min_classes', default=2, type=int, help='min classes for clients')
 parser.add_argument('--client_max_classes', default=5, type=int, help='max classes for clients')
-parser.add_argument('--save_dir', default=f'./data/saved_models/run_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}', type=str, help='Path to save/load ensemble models')
+parser.add_argument('--spoiler_noise', default=0.05, type=float, help='std of noise added to spoiler weights')
+parser.add_argument('--market_lr', default=1.0, type=float, help='learning rate for mirror descent')
+parser.add_argument('--market_epochs', default=50, type=int, help='optimization steps for market weighting')
+parser.add_argument('--save_dir', 
+                    default=f"./data/saved_models/run_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}", 
+                    type=str, help='Path to save/load ensemble models')
+
 args = parser.parse_args()
 
 # USE CUDA PREFFERED
@@ -191,7 +198,7 @@ ensemble_state_dicts = None
 
 if model_file_path.exists():
     try:
-        ensemble_state_dicts = torch.load(model_file_path)
+        ensemble_state_dicts = torch.load(model_file_path, map_location=device)
         print(f"  Ensemble loaded from {model_file_path}.")
     except Exception as e:
         print(f"  Warning: Could not load models from {model_file_path}. Error: {e}")
@@ -319,6 +326,85 @@ def select_uncertainty_aware_models(
 
     return selected_indices
 
+def select_market_models(model_pool, num_to_select, client_loader, device, args):
+    print("    [Market] Generating spoilers...")
+    spoilers = []
+    for model in model_pool:
+        spoiler = copy.deepcopy(model)
+        for p in spoiler.parameters():
+            if p.requires_grad:
+                p.data.add_(torch.randn_like(p) * args.spoiler_noise)
+        spoilers.append(spoiler)
+    
+    all_inputs = []
+    all_targets = []
+    
+    for inp, tar in client_loader:
+        all_inputs.append(inp)
+        all_targets.append(tar)
+        
+    inputs_tensor_full = torch.cat(all_inputs, dim=0) 
+    targets_tensor = torch.cat(all_targets, dim=0).to(device)
+
+    all_logits = []
+    batch_size_inf = 500
+    n_samples = inputs_tensor_full.shape[0]
+    
+    with torch.no_grad():
+        for m in spoilers:
+            m.eval()
+            m.to(device)
+            m_logits_list = []
+            for i in range(0, n_samples, batch_size_inf):
+                batch_inp = inputs_tensor_full[i : i + batch_size_inf].to(device)
+                m_logits_list.append(m(batch_inp).cpu())
+            all_logits.append(torch.cat(m_logits_list, dim=0))
+            
+    logits_tensor = torch.stack(all_logits).to(device)
+    
+    print("    [Market] Pre-computing pairwise disagreement matrix...")
+    probs = F.softmax(logits_tensor, dim=-1)
+    log_probs = F.log_softmax(logits_tensor, dim=-1)
+    
+    p_i = probs.unsqueeze(1)
+    log_p_i = log_probs.unsqueeze(1)
+    log_p_j = log_probs.unsqueeze(0)
+    
+    kl_pairwise_samples = torch.sum(p_i * (log_p_i - log_p_j), dim=-1) 
+    disagreement_matrix = kl_pairwise_samples.mean(dim=-1).to(device)
+    disagreement_matrix.fill_diagonal_(0)
+    
+    n_m = len(model_pool)
+    w = torch.ones(n_m, device=device) / n_m
+    w = w.detach().requires_grad_(True)
+    
+    print(f"    [Market] Optimizing weights ({args.market_epochs} steps)...")
+    
+    for _ in range(args.market_epochs):
+        probs_models = F.softmax(logits_tensor, dim=-1)
+        probs_ens = torch.einsum('n, nmc -> mc', w, probs_models)
+        loss_nll = F.nll_loss(torch.log(probs_ens + 1e-7), targets_tensor)
+        w_D = torch.matmul(w, disagreement_matrix) 
+        diversity = torch.dot(w_D, w)
+        loss = loss_nll - args.lambda_disagreement * diversity
+        
+        if w.grad is not None: w.grad.zero_()
+        loss.backward()
+        
+        with torch.no_grad():
+            w_new = w * torch.exp(-args.market_lr * w.grad)
+            w_new /= w_new.sum()
+            w.copy_(w_new)
+            w.grad.zero_()
+
+    weights_np = w.detach().cpu().numpy()
+    selected_indices = weights_np.argsort()[-num_to_select:][::-1]
+    
+    print(f"    [Market] Final Weights Top: {weights_np[selected_indices]}")
+    
+    return selected_indices.tolist()
+
+
 # Logits saving
 def get_logits(models, data_loader, device):
     # Aggregate logits for all samples from ensemble models
@@ -400,8 +486,13 @@ def select_and_evaluate_models(
             device,
             criterion,
         )
+    elif strategy == "market":
+        print(f"\n  --- Strategy: Market (Spoilers + Mirror Descent) ---")
+        ensemble_indices = select_market_models(
+            ensemble, ensemble_size, client_ind_train_loader, device, args
+        )
     else:
-        raise ValueError(f"Unknown strategy '{strategy}'. Choose from random, accuracy, uncertainty.")
+        raise ValueError(f"Unknown strategy '{strategy}'.")
     
     selected_ensemble = [ensemble[i] for i in ensemble_indices]
     print(f"  -> Selected models: {ensemble_indices}")
@@ -420,7 +511,7 @@ def select_and_evaluate_models(
 print("MODEL SELECTION STRATEGIES COMPARISON")
 print(f"The model pool (`ensemble`) consists of {n_models} models.")
 print(f"For each of the {n_clients} clients, an ensemble of {ensemble_size} models will be selected.")
-print(f"Lambda hyperparameter for Uncertainty-Aware: {lambda_disagreement}")
+print(f"Lambda: {lambda_disagreement}, Spoiler Noise: {args.spoiler_noise}")
 
 for i in range(n_clients):
     print(f"\n[Client {i + 1}] (Classes: {client_classes[i]})")
@@ -449,6 +540,17 @@ for i in range(n_clients):
 
     selected_ensemble_unc, indices_unc = select_and_evaluate_models(
         "uncertainty",
+        ensemble,
+        client_ind_train_loaders[i],
+        client_ood_test_loaders[i],
+        client_ind_test_loaders[i],
+        i + 1,
+        device,
+        criterion,
+    )
+
+    selected_ensemble_mkt, indices_mkt = select_and_evaluate_models(
+        "market",
         ensemble,
         client_ind_train_loaders[i],
         client_ood_test_loaders[i],

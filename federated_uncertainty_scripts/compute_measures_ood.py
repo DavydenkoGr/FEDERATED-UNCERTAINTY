@@ -1,18 +1,17 @@
 import sys
 import argparse
 from pathlib import Path
+import numpy as np
+from sklearn.metrics import roc_auc_score
+import torch
+import torch.nn.functional as F
 
 # project root = parent of "scripts"
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import numpy as np
-from sklearn.metrics import roc_auc_score
-import torch
-import torch.nn.functional as F
-
-from federated_uncertainty.unc_from_scoring_rules.uncertainty_scores import mv_logscore, mv_brier, mv_spherical
+from federated_uncertainty.unc.risk_metrics import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--n_clients', default=5, type=int, help='number of clients')
@@ -39,45 +38,41 @@ def compute_ood_metrics(ind_logits, ood_logits):
     
     metrics_results = {}
 
-    # --- METRIC 1: MSP (Baseline) ---
-    ind_logits_mean = ind_logits.mean(axis=0)
-    ood_logits_mean = ood_logits.mean(axis=0)
+    # --- METRIC 1: LogScore ---
+    logscore = get_risk_approximation(
+        GName.LOG_SCORE,
+        RiskType.EXCESS_RISK,
+        np.concatenate([ind_logits, ood_logits], axis=1),
+        ApproximationType.CENTRAL,
+        pred_approx=ApproximationType.OUTER
+    )
+    metrics_results['LogScore'] = roc_auc_score(y_true, logscore)
 
-    ind_probs = F.softmax(torch.tensor(ind_logits_mean), dim=1).numpy()
-    ood_probs = F.softmax(torch.tensor(ood_logits_mean), dim=1).numpy()
+    # --- METRIC 2: Brier ---
+    brier = get_risk_approximation(
+        GName.BRIER_SCORE,
+        RiskType.EXCESS_RISK,
+        np.concatenate([ind_logits, ood_logits], axis=1),
+        ApproximationType.CENTRAL,
+        pred_approx=ApproximationType.OUTER
+    )
+    metrics_results['Brier'] = roc_auc_score(y_true, brier)
 
-    ind_msp_score = 1 - ind_probs.max(axis=1)
-    ood_msp_score = 1 - ood_probs.max(axis=1)
-    
-    y_scores_msp = np.concatenate([ind_msp_score, ood_msp_score])
-    metrics_results['MSP'] = roc_auc_score(y_true, y_scores_msp)
-
-    # --- METRIC 2: Model Variance (LogScore) ---
-    ind_mv_log = mv_logscore(logits_pred=ind_logits, logits_gt=ind_logits)
-    ood_mv_log = mv_logscore(logits_pred=ood_logits, logits_gt=ood_logits)
-
-    y_scores_mv_log = np.concatenate([ind_mv_log, ood_mv_log])
-    metrics_results['MV_LogScore'] = roc_auc_score(y_true, y_scores_mv_log)
-
-    # --- METRIC 3: Model Variance (Brier) ---
-    ind_mv_brier = mv_brier(logits_pred=ind_logits, logits_gt=ind_logits)
-    ood_mv_brier = mv_brier(logits_pred=ood_logits, logits_gt=ood_logits)
-    
-    y_scores_mv_brier = np.concatenate([ind_mv_brier, ood_mv_brier])
-    metrics_results['MV_Brier'] = roc_auc_score(y_true, y_scores_mv_brier)
-
-    # --- METRIC 4: Model Variance (Spherical) ---
-    ind_mv_spherical = mv_spherical(logits_pred=ind_logits, logits_gt=ind_logits)
-    ood_mv_spherical = mv_spherical(logits_pred=ood_logits, logits_gt=ood_logits)
-    
-    y_scores_mv_spherical = np.concatenate([ind_mv_spherical, ood_mv_spherical])
-    metrics_results['MV_Spherical'] = roc_auc_score(y_true, y_scores_mv_spherical)
+    # --- METRIC 3: Spherical ---
+    spherical = get_risk_approximation(
+        GName.SPHERICAL_SCORE,
+        RiskType.EXCESS_RISK,
+        np.concatenate([ind_logits, ood_logits], axis=1),
+        ApproximationType.CENTRAL,
+        pred_approx=ApproximationType.OUTER
+    )
+    metrics_results['Spherical'] = roc_auc_score(y_true, spherical)
 
     return metrics_results
 
 print(f"--- Starting OOD Uncertainty Evaluation ---")
-print(f"{'Client':<8} | {'Strategy':<12} | {'MSP':<10} | {'MV LogScore':<10} | {'MV Brier':<10} | {'MV Spherical':<12}")
-print("-" * 80)
+print(f"{'Client':<8} | {'Strategy':<12} | {'LogScore':<10} | {'Brier':<10} | {'Spherical':<12}")
+print("-" * 70)
 
 strategies = ["random", "accuracy", "uncertainty"]
 
@@ -91,7 +86,7 @@ for strategy in strategies:
         
         results = compute_ood_metrics(all_ind_logits, all_ood_logits)
         
-        print(f"{client_id:02d}       | {strategy:<12} | {results['MSP']:.4f}     | {results['MV_LogScore']:.4f}       | {results['MV_Brier']:.4f}    | {results['MV_Spherical']:.4f}")
-    print("-" * 80)
+        print(f"{client_id:02d}       | {strategy:<12} | {results['LogScore']:.4f}     | {results['Brier']:.4f}     | {results['Spherical']:.4f}")
+    print("-" * 70)
 
 print(f"--- Calculation Complete ---")

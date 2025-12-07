@@ -95,3 +95,46 @@ class VGG(torch.nn.Module):
         if hasattr(self.classifier, "out_features"):
             layers += [torch.nn.AvgPool2d(kernel_size=1, stride=1)]
         return torch.nn.Sequential(*layers)
+
+
+class QuantVGG(VGG):
+    def __init__(self, vgg_name, n_classes):
+        super(QuantVGG, self).__init__(vgg_name, n_classes)
+        # QuantStub: float -> int8
+        self.quant = torch.quantization.QuantStub()
+        # DeQuantStub: int8 -> float
+        self.dequant = torch.quantization.DeQuantStub()
+
+    def forward(self, x):
+        x = self.quant(x)
+        
+        out = self.features(x)
+        out = out.view(out.size(0), -1)
+        out = self.classifier(out)
+        
+        out = self.dequant(out)
+        return out
+
+    def fuse_model(self):
+        """
+        Layers fusing (Conv + BN + ReLU; Linear + ReLU head) for correct quantization 
+        """
+        modules_to_fuse = []
+        for i in range(len(self.features) - 2):
+            if (isinstance(self.features[i], nn.Conv2d) and
+                isinstance(self.features[i + 1], nn.BatchNorm2d) and
+                isinstance(self.features[i + 2], nn.ReLU)):
+
+                modules_to_fuse.append([str(i), str(i + 1), str(i + 2)])
+        
+        if modules_to_fuse:
+            torch.quantization.fuse_modules(self.features, modules_to_fuse, inplace=True)
+
+        if isinstance(self.classifier, nn.Sequential):
+            modules_to_fuse_clf = []
+            for i in range(len(self.classifier) - 1):
+                if (isinstance(self.classifier[i], nn.Linear) and
+                    isinstance(self.classifier[i + 1], nn.ReLU)):
+                    modules_to_fuse_clf.append([str(i), str(i + 1)])
+            if modules_to_fuse_clf:
+                torch.quantization.fuse_modules(self.classifier, modules_to_fuse_clf, inplace=True)

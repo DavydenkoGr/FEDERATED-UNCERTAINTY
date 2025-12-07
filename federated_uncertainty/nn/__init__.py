@@ -9,7 +9,7 @@ from .resnet import (
     ResNet101,
     ResNet152,
 )
-from .vgg import VGG
+from .vgg import VGG, QuantVGG
 
 __all__ = [
     "ModelName",
@@ -21,5 +21,6 @@ __all__ = [
     "ResNet101",
     "ResNet152",
     "VGG",
+    "QuantVGG",
     "ShallowNet",
 ]

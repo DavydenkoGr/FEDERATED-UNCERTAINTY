@@ -18,8 +18,9 @@ if str(ROOT) not in sys.path:
 
 from federated_uncertainty.optim.train import train_ensembles_w_local_data
 from federated_uncertainty.randomness import set_all_seeds
-from federated_uncertainty.models import VGG
+from federated_uncertainty.nn import QuantVGG
 from federated_uncertainty.eval import evaluate_single_model_accuracy, evaluate_selected_ensemble
+from federated_uncertainty.noise import get_noisy_model, NoiseType
 
 seed = 1
 set_all_seeds(seed)
@@ -193,7 +194,7 @@ model_file_path = run_dir / 'ensemble.pt'
 
 model_file_path.parent.mkdir(parents=True, exist_ok=True)
 
-ensemble = [VGG('VGG19').to(device) for _ in range(n_models)]
+ensemble = [QuantVGG('VGG19', n_classes).to(device) for _ in range(n_models)]
 ensemble_state_dicts = None
 
 if model_file_path.exists():
@@ -232,10 +233,10 @@ if ensemble_state_dicts is None:
 if ensemble_size > n_models:
     raise ValueError(f"ensemble_size ({ensemble_size}) cannot be larger than n_models ({n_models})")
 
-def select_accuracy_only_models(model_pool, num_to_select, client_test_loader, device):
+def select_accuracy_only_models(spoilers, num_to_select, client_test_loader, device):
     accuracies = []
 
-    for i, model in enumerate(model_pool):
+    for i, model in enumerate(spoilers):
         acc = evaluate_single_model_accuracy(model, client_test_loader, device)
         accuracies.append((acc, i))
 
@@ -276,7 +277,7 @@ def calculate_disagreement(model_f, model_g, ood_loader, device):
     return total_disagreement / num_batches if num_batches > 0 else 0
 
 def select_uncertainty_aware_models(
-        model_pool,
+        spoilers,
         num_to_select,
         client_test_loader,
         ood_loader,
@@ -284,10 +285,10 @@ def select_uncertainty_aware_models(
         device,
         criterion):
 
-    candidate_indices = list(range(len(model_pool)))
+    candidate_indices = list(range(len(spoilers)))
 
     model_risks = {
-        idx: calculate_local_risk(model_pool[idx], client_test_loader, device, criterion)
+        idx: calculate_local_risk(spoilers[idx], client_test_loader, device, criterion)
         for idx in candidate_indices
     }
 
@@ -307,8 +308,8 @@ def select_uncertainty_aware_models(
                 total_disagreement = 0
                 for f_idx in selected_indices:
                     total_disagreement += calculate_disagreement(
-                        model_pool[f_idx],
-                        model_pool[k_idx],
+                        spoilers[f_idx],
+                        spoilers[k_idx],
                         ood_loader,
                         device
                     )
@@ -326,16 +327,7 @@ def select_uncertainty_aware_models(
 
     return selected_indices
 
-def select_market_models(model_pool, num_to_select, client_loader, device, args):
-    print("    [Market] Generating spoilers...")
-    spoilers = []
-    for model in model_pool:
-        spoiler = copy.deepcopy(model)
-        for p in spoiler.parameters():
-            if p.requires_grad:
-                p.data.add_(torch.randn_like(p) * args.spoiler_noise)
-        spoilers.append(spoiler)
-    
+def select_market_models(spoilers, num_to_select, client_loader, device, args):
     all_inputs = []
     all_targets = []
     
@@ -374,7 +366,7 @@ def select_market_models(model_pool, num_to_select, client_loader, device, args)
     disagreement_matrix = kl_pairwise_samples.mean(dim=-1).to(device)
     disagreement_matrix.fill_diagonal_(0)
     
-    n_m = len(model_pool)
+    n_m = len(spoilers)
     w = torch.ones(n_m, device=device) / n_m
     w = w.detach().requires_grad_(True)
     
@@ -458,27 +450,26 @@ def save_logits_and_labels(selected_models, ind_loader, ood_loader, client_num, 
 def select_and_evaluate_models(
     strategy,
     ensemble,
+    spoilers,
     client_ind_train_loader,
     client_ood_test_loader,
     client_ind_test_loader,
     client_num,
     device,
     criterion,
-):
-    import random
-
+):  
     if strategy == "random":
         print("  --- Strategy: Random Selection ---")
         ensemble_indices = random.sample(range(n_models), ensemble_size)
     elif strategy == "accuracy":
         print("\n  --- Strategy: Accuracy-only Selection ---")
         ensemble_indices = select_accuracy_only_models(
-            ensemble, ensemble_size, client_ind_train_loader, device
+            spoilers, ensemble_size, client_ind_train_loader, device
         )
     elif strategy == "uncertainty":
         print(f"\n  --- Strategy: Uncertainty-Aware (lambda={lambda_disagreement}) ---")
         ensemble_indices = select_uncertainty_aware_models(
-            ensemble,
+            spoilers,
             ensemble_size,
             client_ind_train_loader,
             client_ood_test_loader,
@@ -487,9 +478,9 @@ def select_and_evaluate_models(
             criterion,
         )
     elif strategy == "market":
-        print(f"\n  --- Strategy: Market (Spoilers + Mirror Descent) ---")
+        print(f"\n  --- Strategy: Market (weights optimization) ---")
         ensemble_indices = select_market_models(
-            ensemble, ensemble_size, client_ind_train_loader, device, args
+            spoilers, ensemble_size, client_ind_train_loader, device, args
         )
     else:
         raise ValueError(f"Unknown strategy '{strategy}'.")
@@ -513,12 +504,19 @@ print(f"The model pool (`ensemble`) consists of {n_models} models.")
 print(f"For each of the {n_clients} clients, an ensemble of {ensemble_size} models will be selected.")
 print(f"Lambda: {lambda_disagreement}, Spoiler Noise: {args.spoiler_noise}")
 
+# create spoiler versions of our models from pool
+spoilers = []
+for model in ensemble:
+    spoiler = get_noisy_model(model, NoiseType.QUANT, device, noise_level=args.spoiler_noise)
+    spoilers.append(spoiler)
+
 for i in range(n_clients):
     print(f"\n[Client {i + 1}] (Classes: {client_classes[i]})")
 
     selected_ensemble_random, indices_random = select_and_evaluate_models(
         "random",
         ensemble,
+        spoilers,
         client_ind_train_loaders[i],
         client_ood_test_loaders[i],
         client_ind_test_loaders[i],
@@ -530,6 +528,7 @@ for i in range(n_clients):
     selected_ensemble_acc, indices_acc = select_and_evaluate_models(
         "accuracy",
         ensemble,
+        spoilers,
         client_ind_train_loaders[i],
         client_ood_test_loaders[i],
         client_ind_test_loaders[i],
@@ -541,6 +540,7 @@ for i in range(n_clients):
     selected_ensemble_unc, indices_unc = select_and_evaluate_models(
         "uncertainty",
         ensemble,
+        spoilers,
         client_ind_train_loaders[i],
         client_ood_test_loaders[i],
         client_ind_test_loaders[i],
@@ -552,6 +552,7 @@ for i in range(n_clients):
     selected_ensemble_mkt, indices_mkt = select_and_evaluate_models(
         "market",
         ensemble,
+        spoilers,
         client_ind_train_loaders[i],
         client_ood_test_loaders[i],
         client_ind_test_loaders[i],

@@ -233,6 +233,107 @@ if ensemble_state_dicts is None:
 if ensemble_size > n_models:
     raise ValueError(f"ensemble_size ({ensemble_size}) cannot be larger than n_models ({n_models})")
 
+def get_all_logits_and_targets(models, data_loader, device):
+    all_inputs = []
+    all_targets = []
+    
+    for inp, tar in data_loader:
+        all_inputs.append(inp)
+        all_targets.append(tar)
+        
+    inputs_tensor = torch.cat(all_inputs, dim=0)
+    targets_tensor = torch.cat(all_targets, dim=0).to(device)
+    
+    n_samples = inputs_tensor.shape[0]
+    batch_size_inf = 500
+    all_logits = []
+
+    with torch.no_grad():
+        for model in models:
+            model.eval()
+            model.to(device)
+            model_logits = []
+            
+            for i in range(0, n_samples, batch_size_inf):
+                batch_inp = inputs_tensor[i : i + batch_size_inf].to(device)
+                model_logits.append(model(batch_inp).cpu())
+            
+            all_logits.append(torch.cat(model_logits, dim=0))
+            
+    logits_tensor = torch.stack(all_logits).to(device)
+    return logits_tensor, targets_tensor
+
+def optimize_ensemble_weights(models, client_loader, device, args):
+    print(f"    [Weight Opt] Optimizing weights for {len(models)} models...")
+    
+    logits_tensor, targets_tensor = get_all_logits_and_targets(models, client_loader, device)
+    
+    probs = F.softmax(logits_tensor, dim=-1)
+    log_probs = F.log_softmax(logits_tensor, dim=-1)
+    
+    p_i = probs.unsqueeze(1)
+    log_p_i = log_probs.unsqueeze(1)
+    log_p_j = log_probs.unsqueeze(0)
+    
+    kl_pairwise_samples = torch.sum(p_i * (log_p_i - log_p_j), dim=-1) 
+    disagreement_matrix = kl_pairwise_samples.mean(dim=-1).to(device)
+    disagreement_matrix.fill_diagonal_(0)
+    
+    n_m = len(models)
+    w = torch.ones(n_m, device=device) / n_m
+    w = w.detach().requires_grad_(True)
+    
+    for _ in range(args.market_epochs):
+        probs_models = F.softmax(logits_tensor, dim=-1)
+        probs_ens = torch.einsum('m, mnc -> nc', w, probs_models)
+        
+        loss_nll = F.nll_loss(torch.log(probs_ens + 1e-9), targets_tensor)
+        w_D = torch.matmul(w, disagreement_matrix) 
+        diversity = torch.dot(w_D, w)
+        
+        loss = loss_nll - args.lambda_disagreement * diversity
+        
+        if w.grad is not None: w.grad.zero_()
+        loss.backward()
+        
+        with torch.no_grad():
+            w_new = w * torch.exp(-args.market_lr * w.grad)
+            w_new /= w_new.sum()
+            w.copy_(w_new)
+            w.grad.zero_()
+
+    weights_np = w.detach().cpu().numpy()
+    print(f"    [Weight Opt] Final Weights: {weights_np}")
+    
+    return w.detach()
+
+def evaluate_weighted_ensemble(models, weights, data_loader, device, criterion):
+    total_loss = 0.0
+    correct = 0
+    total = 0
+    weights = weights.to(device)
+
+    with torch.no_grad():
+        for inputs, targets in data_loader:
+            inputs, targets = inputs.to(device), targets.to(device)
+            
+            outputs_list = [model(inputs) for model in models]
+            outputs_stack = torch.stack(outputs_list, dim=1) 
+            probs_stack = F.softmax(outputs_stack, dim=-1)
+            
+            ensemble_probs = torch.einsum('m, bmc -> bc', weights, probs_stack)
+            
+            loss = criterion(torch.log(ensemble_probs + 1e-9), targets)
+            total_loss += loss.item() * inputs.size(0)
+            
+            _, predicted = ensemble_probs.max(1)
+            total += targets.size(0)
+            correct += predicted.eq(targets).sum().item()
+
+    acc = 100. * correct / total
+    avg_loss = total_loss / total
+    return acc, avg_loss
+
 def select_accuracy_only_models(spoilers, num_to_select, client_test_loader, device):
     accuracies = []
 
@@ -328,31 +429,7 @@ def select_uncertainty_aware_models(
     return selected_indices
 
 def select_market_models(spoilers, num_to_select, client_loader, device, args):
-    all_inputs = []
-    all_targets = []
-    
-    for inp, tar in client_loader:
-        all_inputs.append(inp)
-        all_targets.append(tar)
-        
-    inputs_tensor_full = torch.cat(all_inputs, dim=0) 
-    targets_tensor = torch.cat(all_targets, dim=0).to(device)
-
-    all_logits = []
-    batch_size_inf = 500
-    n_samples = inputs_tensor_full.shape[0]
-    
-    with torch.no_grad():
-        for m in spoilers:
-            m.eval()
-            m.to(device)
-            m_logits_list = []
-            for i in range(0, n_samples, batch_size_inf):
-                batch_inp = inputs_tensor_full[i : i + batch_size_inf].to(device)
-                m_logits_list.append(m(batch_inp).cpu())
-            all_logits.append(torch.cat(m_logits_list, dim=0))
-            
-    logits_tensor = torch.stack(all_logits).to(device)
+    logits_tensor, targets_tensor = get_all_logits_and_targets(spoilers, client_loader, device)
     
     print("    [Market] Pre-computing pairwise disagreement matrix...")
     probs = F.softmax(logits_tensor, dim=-1)
@@ -478,7 +555,7 @@ def select_and_evaluate_models(
             criterion,
         )
     elif strategy == "market":
-        print(f"\n  --- Strategy: Market (weights optimization) ---")
+        print(f"\n  --- Strategy: Market (selection by weights) ---")
         ensemble_indices = select_market_models(
             spoilers, ensemble_size, client_ind_train_loader, device, args
         )
@@ -560,3 +637,29 @@ for i in range(n_clients):
         device,
         criterion,
     )
+    
+    print(f"\n  --- Strategy: Hybrid (Uncertainty Selection + Market Weighting) ---")
+    
+    hybrid_indices = indices_unc 
+    hybrid_ensemble = selected_ensemble_unc
+
+    print(f"  -> Selected models: {hybrid_indices}")
+    
+    hybrid_weights = optimize_ensemble_weights(
+        hybrid_ensemble,
+        client_ind_train_loaders[i],
+        device,
+        args
+    )
+    
+    hybrid_acc, hybrid_loss = evaluate_weighted_ensemble(
+        hybrid_ensemble, 
+        hybrid_weights, 
+        client_ind_test_loaders[i], 
+        device, 
+        criterion
+    )
+    
+    print(f"    -> Hybrid Ensemble Accuracy (Weighted): {hybrid_acc:.4f} (Loss: {hybrid_loss:.4f})")
+    
+    save_logits_and_labels(hybrid_ensemble, client_ind_test_loaders[i], client_ood_test_loaders[i], i + 1, "hybrid", device)

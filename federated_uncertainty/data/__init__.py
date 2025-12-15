@@ -1,6 +1,3 @@
-from .constants import DatasetName
-from .load_dataset import get_dataset
-from .toy_datasets import load_toy_dataset
-from .data_utils import split_dataset
+from .data_loader import load_dataset, get_class_indices
 
-__all__ = ["DatasetName", "get_dataset", "load_toy_dataset", "split_dataset"]
+__all__ = ["load_dataset", "get_class_indices"]

@@ -20,7 +20,8 @@ from federated_uncertainty.optim.train import train_ensembles_w_local_data
 from federated_uncertainty.randomness import set_all_seeds
 from federated_uncertainty.nn import QuantVGG
 from federated_uncertainty.eval import evaluate_single_model_accuracy, evaluate_selected_ensemble
-from federated_uncertainty.noise import get_noisy_model, NoiseType
+from federated_uncertainty.noise import get_noisy_model, NoiseType, NOISE_CHOICES
+from federated_uncertainty.data import load_dataset, get_class_indices
 
 seed = 1
 set_all_seeds(seed)
@@ -40,12 +41,20 @@ parser.add_argument('--model_min_classes', default=5, type=int, help='min classe
 parser.add_argument('--model_max_classes', default=8, type=int, help='max classes for model pool')
 parser.add_argument('--client_min_classes', default=2, type=int, help='min classes for clients')
 parser.add_argument('--client_max_classes', default=5, type=int, help='max classes for clients')
+parser.add_argument('--noise_type', 
+                    default=NoiseType.QUANT.name.lower(),
+                    type=str, 
+                    choices=NOISE_CHOICES,
+                    help=f'Type of noise to apply to spoiler models. Choices: {", ".join(NOISE_CHOICES)}')
 parser.add_argument('--spoiler_noise', default=0.05, type=float, help='std of noise added to spoiler weights')
 parser.add_argument('--market_lr', default=1.0, type=float, help='learning rate for mirror descent')
 parser.add_argument('--market_epochs', default=50, type=int, help='optimization steps for market weighting')
 parser.add_argument('--save_dir', 
                     default=f"./data/saved_models/run_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}", 
                     type=str, help='Path to save/load ensemble models')
+parser.add_argument('--dataset', default='cifar10', type=str, 
+                    choices=['cifar10', 'cifar100', 'tiny-imagenet'], 
+                    help='dataset to use (cifar10, cifar100, tiny-imagenet)')
 
 args = parser.parse_args()
 
@@ -67,39 +76,18 @@ model_min_classes = args.model_min_classes
 model_max_classes = args.model_max_classes
 client_min_classes = args.client_min_classes
 client_max_classes = args.client_max_classes
+spoiler_noise = args.spoiler_noise
+noise_type = NoiseType[args.noise_type.upper()]
 save_dir = args.save_dir
+dataset_name = args.dataset
 
-# FOR CIFAR10 ONLY
-n_classes = 10
-classes = ('plane', 'car', 'bird', 'cat', 'deer',
-           'dog', 'frog', 'horse', 'ship', 'truck')
+# load dataset
+trainset, testset, n_classes = load_dataset(dataset_name, data_root='./data')
 all_class_indices = list(range(n_classes))
 criterion = nn.CrossEntropyLoss()
 
-print('==> Preparing data..')
-transform_train = transforms.Compose([
-    transforms.RandomCrop(32, padding=4),
-    transforms.RandomHorizontalFlip(),
-    transforms.ToTensor(),
-    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-])
-
-transform_test = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-])
-
-trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform_train)
-testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
-
-def get_class_indices(dataset):
-    class_indices = {i: [] for i in range(n_classes)}
-    for idx, (_, label) in enumerate(dataset):
-        class_indices[label].append(idx)
-    return class_indices
-
-train_class_indices = get_class_indices(trainset)
-test_class_indices = get_class_indices(testset)
+train_class_indices = get_class_indices(trainset, n_classes)
+test_class_indices = get_class_indices(testset, n_classes)
 
 print('==> Splitting trainset into model_pool and client_data (stratified)...')
 
@@ -141,7 +129,12 @@ print(f"\n==> Generating {n_models} datasets for model pool training...")
 model_train_loaders = []
 
 for i in range(n_models):
+    # maybe better to add raise error
+    model_max_classes = min(model_max_classes, n_classes)
+    model_min_classes = min(model_min_classes, model_max_classes)
+
     n_model_classes = random.randint(model_min_classes, model_max_classes)
+
     ind_classes = random.sample(range(n_classes), n_model_classes)
     train_indices = sample_indices(ind_classes, model_pool_class_indices, samples_per_model)
     train_subset = Subset(trainset, train_indices)
@@ -579,12 +572,12 @@ def select_and_evaluate_models(
 print("MODEL SELECTION STRATEGIES COMPARISON")
 print(f"The model pool (`ensemble`) consists of {n_models} models.")
 print(f"For each of the {n_clients} clients, an ensemble of {ensemble_size} models will be selected.")
-print(f"Lambda: {lambda_disagreement}, Spoiler Noise: {args.spoiler_noise}")
+print(f"Lambda: {lambda_disagreement}, Spoiler Noise: {spoiler_noise}")
 
 # create spoiler versions of our models from pool
 spoilers = []
 for model in ensemble:
-    spoiler = get_noisy_model(model, NoiseType.QUANT, device, noise_level=args.spoiler_noise)
+    spoiler = get_noisy_model(model, noise_type, device, noise_level=spoiler_noise)
     spoilers.append(spoiler)
 
 for i in range(n_clients):

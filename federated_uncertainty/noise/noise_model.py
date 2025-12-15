@@ -9,6 +9,9 @@ class NoiseType(Enum):
     NOIZE_WEIGHTS = "NoiseWeights"
 
 
+NOISE_CHOICES = [e.name.lower() for e in NoiseType]
+
+
 def get_noisy_model(model, noise_type: NoiseType, device, noise_level=None):
     """
     If use quantization, model should have fuse_model() method

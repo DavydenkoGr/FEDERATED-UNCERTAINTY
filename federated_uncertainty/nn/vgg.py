@@ -4,6 +4,7 @@ from typing import List
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 VGG_NAME_TO_CONFIGURATION_DICT = {
     "VGG11": [64, "M", 128, "M", 256, 256, "M", 512, 512, "M", 512, 512, "M"],
@@ -75,6 +76,7 @@ class VGG(torch.nn.Module):
 
     def forward(self, x):
         out = self.features(x)
+        out = F.adaptive_avg_pool2d(out, (1, 1))
         out = out.view(out.size(0), -1)
         out = self.classifier(out)
         return out
@@ -92,8 +94,7 @@ class VGG(torch.nn.Module):
                     torch.nn.ReLU(inplace=True),
                 ]
                 in_channels = x
-        if hasattr(self.classifier, "out_features"):
-            layers += [torch.nn.AvgPool2d(kernel_size=1, stride=1)]
+        
         return torch.nn.Sequential(*layers)
 
 
@@ -109,6 +110,7 @@ class QuantVGG(VGG):
         x = self.quant(x)
         
         out = self.features(x)
+        out = F.adaptive_avg_pool2d(out, (1, 1))
         out = out.view(out.size(0), -1)
         out = self.classifier(out)
         

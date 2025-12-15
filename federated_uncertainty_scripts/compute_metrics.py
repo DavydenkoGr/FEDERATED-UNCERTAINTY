@@ -22,7 +22,7 @@ args = parser.parse_args()
 data_path = args.data_path
 n_clients = args.n_clients
 
-def compute_ood_metrics(ind_logits, ood_logits, ind_labels):
+def compute_metrics(ind_logits, ood_logits, ind_labels):
     """
     Computes AUC for multiple uncertainty metrics
     
@@ -89,7 +89,7 @@ def compute_ood_metrics(ind_logits, ood_logits, ind_labels):
 
     return metrics_results
 
-print(f"--- Starting OOD Uncertainty Evaluation ---")
+print(f"--- Starting Evaluation ---")
 print(f"{'Client':<8} | {'Strategy':<12} | {'LogScore':<10} | {'Brier':<10} | {'Spherical':<10} | {'ECE':<10} | {'MCE':<10} | {'CW-ECE':<10}")
 print("-" * 100)
 
@@ -105,7 +105,7 @@ for strategy in strategies:
         all_ood_logits = torch.load(ood_logits_path).numpy()
         all_ind_labels = torch.load(ind_labels_path).numpy()
         
-        results = compute_ood_metrics(all_ind_logits, all_ood_logits, all_ind_labels)
+        results = compute_metrics(all_ind_logits, all_ood_logits, all_ind_labels)
         
         print(f"{client_id:02d}       | {strategy:<12} | {results['LogScore']:.4f}     | {results['Brier']:.4f}     | {results['Spherical']:.4f}     | {results['ECE']:.4f}     | {results['MCE']:.4f}     | {results['CW-ECE']:.4f}")
     print("-" * 100)

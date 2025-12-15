@@ -45,7 +45,7 @@ def compute_metrics(ind_logits, ood_logits, ind_labels):
         GName.LOG_SCORE,
         RiskType.EXCESS_RISK,
         np.concatenate([ind_logits, ood_logits], axis=1),
-        ApproximationType.CENTRAL,
+        ApproximationType.OUTER,
         pred_approx=ApproximationType.OUTER
     )
     metrics_results['LogScore'] = roc_auc_score(y_true, logscore)
@@ -55,7 +55,7 @@ def compute_metrics(ind_logits, ood_logits, ind_labels):
         GName.BRIER_SCORE,
         RiskType.EXCESS_RISK,
         np.concatenate([ind_logits, ood_logits], axis=1),
-        ApproximationType.CENTRAL,
+        ApproximationType.OUTER,
         pred_approx=ApproximationType.OUTER
     )
     metrics_results['Brier'] = roc_auc_score(y_true, brier)
@@ -65,7 +65,7 @@ def compute_metrics(ind_logits, ood_logits, ind_labels):
         GName.SPHERICAL_SCORE,
         RiskType.EXCESS_RISK,
         np.concatenate([ind_logits, ood_logits], axis=1),
-        ApproximationType.CENTRAL,
+        ApproximationType.OUTER,
         pred_approx=ApproximationType.OUTER
     )
     metrics_results['Spherical'] = roc_auc_score(y_true, spherical)

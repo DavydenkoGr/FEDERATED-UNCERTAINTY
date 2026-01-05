@@ -87,11 +87,16 @@ def compute_metrics(ind_logits, ood_logits, ind_labels):
     cw_ece = get_metric("cw-ece")
     metrics_results['CW-ECE'] = cw_ece(probs=avg_ind_probs, y_true=ind_labels)
 
+    # --- METRIC 7: Accuracy ---
+    predictions = np.argmax(avg_ind_probs, axis=1)
+    accuracy = np.mean(predictions == ind_labels)
+    metrics_results['Accuracy'] = accuracy
+
     return metrics_results
 
 print(f"--- Starting Evaluation ---")
-print(f"{'Client':<8} | {'Strategy':<12} | {'LogScore':<10} | {'Brier':<10} | {'Spherical':<10} | {'ECE':<10} | {'MCE':<10} | {'CW-ECE':<10}")
-print("-" * 100)
+print(f"{'Client':<8} | {'Strategy':<12} | {'LogScore':<10} | {'Brier':<10} | {'Spherical':<10} | {'ECE':<10} | {'MCE':<10} | {'CW-ECE':<10} | {'Accuracy':<10}")
+print("-" * 110)
 
 strategies = ["random", "accuracy", "uncertainty"]
 
@@ -107,7 +112,7 @@ for strategy in strategies:
         
         results = compute_metrics(all_ind_logits, all_ood_logits, all_ind_labels)
         
-        print(f"{client_id:02d}       | {strategy:<12} | {results['LogScore']:.4f}     | {results['Brier']:.4f}     | {results['Spherical']:.4f}     | {results['ECE']:.4f}     | {results['MCE']:.4f}     | {results['CW-ECE']:.4f}")
-    print("-" * 100)
+        print(f"{client_id:02d}       | {strategy:<12} | {results['LogScore']:.4f}     | {results['Brier']:.4f}     | {results['Spherical']:.4f}     | {results['ECE']:.4f}     | {results['MCE']:.4f}     | {results['CW-ECE']:.4f}     | {results['Accuracy']:.4f}")
+    print("-" * 110)
 
 print(f"--- Calculation Complete ---")

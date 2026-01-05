@@ -467,39 +467,24 @@ def select_market_models(spoilers, num_to_select, client_loader, device, args):
     return selected_indices.tolist()
 
 
-# Logits saving
-def get_logits(models, data_loader, device):
-    # Aggregate logits for all samples from ensemble models
+# Logits and labels saving (keeps alignment regardless of DataLoader shuffle)
+def get_logits_and_labels(models, data_loader, device):
     all_logits = []
+    all_labels = []
     with torch.no_grad():
-        for inputs, _ in data_loader:
+        for inputs, labels in data_loader:
             inputs = inputs.to(device)
             # Collect logits from each model in the ensemble
             batch_logits = torch.stack([model(inputs) for model in models], dim=0)  # shape: (ensemble_size, batch, classes)
             all_logits.append(batch_logits.cpu())
-    # Concatenate all batches: shape (ensemble_size, total_samples, classes)
-    return torch.cat(all_logits, dim=1)
-
-# Labels saving
-def get_labels(data_loader):
-    # Assuming data_loader.dataset is a Subset wrapping the original dataset with targets accessible
-    dataset = data_loader.dataset
-    if isinstance(dataset, torch.utils.data.Subset):
-        indices = dataset.indices
-        # Original dataset assumed to have attribute 'targets' (CIFAR10 does)
-        labels = [dataset.dataset.targets[i] for i in indices]
-    else:
-        # If direct dataset, just return targets
-        labels = dataset.targets
-    return torch.tensor(labels)
+            all_labels.append(labels.cpu())
+    # Concatenate all batches: logits shape (ensemble_size, total_samples, classes); labels shape (total_samples,)
+    return torch.cat(all_logits, dim=1), torch.cat(all_labels, dim=0)
 
 
 def save_logits_and_labels(selected_models, ind_loader, ood_loader, client_num, strategy, device):
-    ind_logits = get_logits(selected_models, ind_loader, device)
-    ood_logits = get_logits(selected_models, ood_loader, device)
-
-    y_ind = get_labels(ind_loader)
-    y_ood = get_labels(ood_loader)
+    ind_logits, y_ind = get_logits_and_labels(selected_models, ind_loader, device)
+    ood_logits, y_ood = get_logits_and_labels(selected_models, ood_loader, device)
 
     # Save logits and labels for later use
     logits_ind_path = run_dir / "logits" / f"client_{client_num}" / f"{strategy}_ind.pt"

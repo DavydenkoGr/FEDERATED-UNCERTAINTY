@@ -22,13 +22,14 @@ args = parser.parse_args()
 data_path = args.data_path
 n_clients = args.n_clients
 
-def compute_metrics(ind_logits, ood_logits, ind_labels):
+def compute_metrics(ind_logits, ood_logits, ind_labels, weights=None):
     """
     Computes AUC for multiple uncertainty metrics
     
     ind_logits: np.array (n_models, N_ind, n_classes)
     ood_logits: np.array (n_models, N_ood, n_classes)
     ind_labels: np.array (N_ind)
+    weights: np.array (n_models,) or None - optional weights for weighted ensemble
     """
     
     # --- 1. Prepare labels for ROC-AUC ---
@@ -46,7 +47,8 @@ def compute_metrics(ind_logits, ood_logits, ind_labels):
         RiskType.EXCESS_RISK,
         np.concatenate([ind_logits, ood_logits], axis=1),
         ApproximationType.OUTER,
-        pred_approx=ApproximationType.OUTER
+        pred_approx=ApproximationType.OUTER,
+        weights=weights
     )
     metrics_results['LogScore'] = roc_auc_score(y_true, logscore)
 
@@ -56,7 +58,8 @@ def compute_metrics(ind_logits, ood_logits, ind_labels):
         RiskType.EXCESS_RISK,
         np.concatenate([ind_logits, ood_logits], axis=1),
         ApproximationType.OUTER,
-        pred_approx=ApproximationType.OUTER
+        pred_approx=ApproximationType.OUTER,
+        weights=weights
     )
     metrics_results['Brier'] = roc_auc_score(y_true, brier)
 
@@ -66,14 +69,20 @@ def compute_metrics(ind_logits, ood_logits, ind_labels):
         RiskType.EXCESS_RISK,
         np.concatenate([ind_logits, ood_logits], axis=1),
         ApproximationType.OUTER,
-        pred_approx=ApproximationType.OUTER
+        pred_approx=ApproximationType.OUTER,
+        weights=weights
     )
     metrics_results['Spherical'] = roc_auc_score(y_true, spherical)
 
     ind_logits_tensor = torch.from_numpy(ind_logits)
     ind_probs_tensor = F.softmax(ind_logits_tensor, dim=2)
     ind_probs = ind_probs_tensor.numpy()
-    avg_ind_probs = np.mean(ind_probs, axis=0)
+    
+    if weights is not None:
+        w_expanded = weights[:, None, None]
+        avg_ind_probs = np.sum(ind_probs * w_expanded, axis=0)
+    else:
+        avg_ind_probs = np.mean(ind_probs, axis=0)
 
     # --- METRIC 4: ECE ---
     ece = get_metric("ece")
@@ -98,7 +107,7 @@ print(f"--- Starting Evaluation ---")
 print(f"{'Client':<8} | {'Strategy':<12} | {'LogScore':<10} | {'Brier':<10} | {'Spherical':<10} | {'ECE':<10} | {'MCE':<10} | {'CW-ECE':<10} | {'Accuracy':<10}")
 print("-" * 110)
 
-strategies = ["random", "accuracy", "uncertainty"]
+strategies = ["random", "accuracy", "uncertainty", "hybrid"]
 
 for strategy in strategies:
     for client_id in range(1, n_clients + 1):
@@ -110,7 +119,17 @@ for strategy in strategies:
         all_ood_logits = torch.load(ood_logits_path).numpy()
         all_ind_labels = torch.load(ind_labels_path).numpy()
         
-        results = compute_metrics(all_ind_logits, all_ood_logits, all_ind_labels)
+        weights = None
+        if strategy == "hybrid":
+            weights_path = f"{data_path}/weights/client_{client_id}/{strategy}_weights.pt"
+            try:
+                weights = torch.load(weights_path)
+                if isinstance(weights, torch.Tensor):
+                    weights = weights.detach().cpu().numpy()     
+            except FileNotFoundError:
+                pass
+        
+        results = compute_metrics(all_ind_logits, all_ood_logits, all_ind_labels, weights=weights)
         
         print(f"{client_id:02d}       | {strategy:<12} | {results['LogScore']:.4f}     | {results['Brier']:.4f}     | {results['Spherical']:.4f}     | {results['ECE']:.4f}     | {results['MCE']:.4f}     | {results['CW-ECE']:.4f}     | {results['Accuracy']:.4f}")
     print("-" * 110)

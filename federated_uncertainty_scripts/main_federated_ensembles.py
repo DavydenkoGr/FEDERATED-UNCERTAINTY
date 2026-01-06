@@ -256,17 +256,20 @@ def get_all_logits_and_targets(models, data_loader, device):
     logits_tensor = torch.stack(all_logits).to(device)
     return logits_tensor, targets_tensor
 
-def optimize_ensemble_weights(models, client_loader, device, args):
+def optimize_ensemble_weights(models, client_loader, device, args, ood_loader):
     print(f"    [Weight Opt] Optimizing weights for {len(models)} models...")
     
     logits_tensor, targets_tensor = get_all_logits_and_targets(models, client_loader, device)
     
-    probs = F.softmax(logits_tensor, dim=-1)
-    log_probs = F.log_softmax(logits_tensor, dim=-1)
+    disagreement_loader = ood_loader
+    logits_ood_tensor, _ = get_all_logits_and_targets(models, disagreement_loader, device)
     
-    p_i = probs.unsqueeze(1)
-    log_p_i = log_probs.unsqueeze(1)
-    log_p_j = log_probs.unsqueeze(0)
+    probs_ood = F.softmax(logits_ood_tensor, dim=-1)
+    log_probs_ood = F.log_softmax(logits_ood_tensor, dim=-1)
+    
+    p_i = probs_ood.unsqueeze(1)
+    log_p_i = log_probs_ood.unsqueeze(1)
+    log_p_j = log_probs_ood.unsqueeze(0)
     
     kl_pairwise_samples = torch.sum(p_i * (log_p_i - log_p_j), dim=-1) 
     disagreement_matrix = kl_pairwise_samples.mean(dim=-1).to(device)
@@ -421,16 +424,18 @@ def select_uncertainty_aware_models(
 
     return selected_indices
 
-def select_market_models(spoilers, num_to_select, client_loader, device, args):
+def select_market_models(spoilers, num_to_select, client_loader, device, args, ood_loader):
     logits_tensor, targets_tensor = get_all_logits_and_targets(spoilers, client_loader, device)
     
-    print("    [Market] Pre-computing pairwise disagreement matrix...")
-    probs = F.softmax(logits_tensor, dim=-1)
-    log_probs = F.log_softmax(logits_tensor, dim=-1)
+    print("    [Market] Pre-computing pairwise disagreement matrix on OOD data...")
+    logits_ood_tensor, _ = get_all_logits_and_targets(spoilers, ood_loader, device)
     
-    p_i = probs.unsqueeze(1)
-    log_p_i = log_probs.unsqueeze(1)
-    log_p_j = log_probs.unsqueeze(0)
+    probs_ood = F.softmax(logits_ood_tensor, dim=-1)
+    log_probs_ood = F.log_softmax(logits_ood_tensor, dim=-1)
+    
+    p_i = probs_ood.unsqueeze(1)
+    log_p_i = log_probs_ood.unsqueeze(1)
+    log_p_j = log_probs_ood.unsqueeze(0)
     
     kl_pairwise_samples = torch.sum(p_i * (log_p_i - log_p_j), dim=-1) 
     disagreement_matrix = kl_pairwise_samples.mean(dim=-1).to(device)
@@ -467,24 +472,39 @@ def select_market_models(spoilers, num_to_select, client_loader, device, args):
     return selected_indices.tolist()
 
 
-# Logits and labels saving (keeps alignment regardless of DataLoader shuffle)
-def get_logits_and_labels(models, data_loader, device):
+# Logits saving
+def get_logits(models, data_loader, device):
+    # Aggregate logits for all samples from ensemble models
     all_logits = []
-    all_labels = []
     with torch.no_grad():
-        for inputs, labels in data_loader:
+        for inputs, _ in data_loader:
             inputs = inputs.to(device)
             # Collect logits from each model in the ensemble
             batch_logits = torch.stack([model(inputs) for model in models], dim=0)  # shape: (ensemble_size, batch, classes)
             all_logits.append(batch_logits.cpu())
-            all_labels.append(labels.cpu())
-    # Concatenate all batches: logits shape (ensemble_size, total_samples, classes); labels shape (total_samples,)
-    return torch.cat(all_logits, dim=1), torch.cat(all_labels, dim=0)
+    # Concatenate all batches: shape (ensemble_size, total_samples, classes)
+    return torch.cat(all_logits, dim=1)
+
+# Labels saving
+def get_labels(data_loader):
+    # Assuming data_loader.dataset is a Subset wrapping the original dataset with targets accessible
+    dataset = data_loader.dataset
+    if isinstance(dataset, torch.utils.data.Subset):
+        indices = dataset.indices
+        # Original dataset assumed to have attribute 'targets' (CIFAR10 does)
+        labels = [dataset.dataset.targets[i] for i in indices]
+    else:
+        # If direct dataset, just return targets
+        labels = dataset.targets
+    return torch.tensor(labels)
 
 
-def save_logits_and_labels(selected_models, ind_loader, ood_loader, client_num, strategy, device):
-    ind_logits, y_ind = get_logits_and_labels(selected_models, ind_loader, device)
-    ood_logits, y_ood = get_logits_and_labels(selected_models, ood_loader, device)
+def save_logits_and_labels(selected_models, ind_loader, ood_loader, client_num, strategy, device, weights=None):
+    ind_logits = get_logits(selected_models, ind_loader, device)
+    ood_logits = get_logits(selected_models, ood_loader, device)
+
+    y_ind = get_labels(ind_loader)
+    y_ood = get_labels(ood_loader)
 
     # Save logits and labels for later use
     logits_ind_path = run_dir / "logits" / f"client_{client_num}" / f"{strategy}_ind.pt"
@@ -499,6 +519,11 @@ def save_logits_and_labels(selected_models, ind_loader, ood_loader, client_num, 
     torch.save(ood_logits, logits_ood_path)
     torch.save(y_ind, labels_ind_path)
     torch.save(y_ood, labels_ood_path)
+
+    if weights is not None:
+        weights_path = run_dir / "weights" / f"client_{client_num}" / f"{strategy}_weights.pt"
+        weights_path.parent.mkdir(parents=True, exist_ok=True)
+        torch.save(weights.cpu(), weights_path)
 
     print(f"Saved client {client_num} logits and labels to:  {run_dir}")
 
@@ -535,7 +560,7 @@ def select_and_evaluate_models(
     elif strategy == "market":
         print(f"\n  --- Strategy: Market (selection by weights) ---")
         ensemble_indices = select_market_models(
-            spoilers, ensemble_size, client_ind_train_loader, device, args
+            spoilers, ensemble_size, client_ind_train_loader, device, args, client_ood_test_loader
         )
     else:
         raise ValueError(f"Unknown strategy '{strategy}'.")
@@ -627,7 +652,8 @@ for i in range(n_clients):
         hybrid_ensemble,
         client_ind_train_loaders[i],
         device,
-        args
+        args,
+        ood_loader=client_ood_test_loaders[i]
     )
     
     hybrid_acc, hybrid_loss = evaluate_weighted_ensemble(
@@ -640,4 +666,4 @@ for i in range(n_clients):
     
     print(f"    -> Hybrid Ensemble Accuracy (Weighted): {hybrid_acc:.4f} (Loss: {hybrid_loss:.4f})")
     
-    save_logits_and_labels(hybrid_ensemble, client_ind_test_loaders[i], client_ood_test_loaders[i], i + 1, "hybrid", device)
+    save_logits_and_labels(hybrid_ensemble, client_ind_test_loaders[i], client_ood_test_loaders[i], i + 1, "hybrid", device, weights=hybrid_weights)

@@ -1,15 +1,11 @@
 from typing import Optional
-
 import numpy as np
 from .constants import ApproximationType, GName, RiskType
 from .getters import (
-    get_central_prediction,
-    get_g_functions,
     get_probability_approximation,
     get_specific_risk,
 )
-from .utils import posterior_predictive, safe_softmax
-from scipy.special import logsumexp
+from .utils import safe_softmax
 
 
 def energy(logits: np.ndarray, T: float) -> np.ndarray:
@@ -32,21 +28,37 @@ def get_risk_approximation(
     T: float = 1.0,
     probabilities: Optional[np.ndarray] = None,
     pred_approx: Optional[ApproximationType] = None,
+    weights: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     if probabilities is None:
         probabilities = safe_softmax(logits)
 
+    if weights is not None:
+        weights = weights / np.sum(weights)
+
     risk = get_specific_risk(g_name=g_name, risk_type=risk_type)
     prob_gt = get_probability_approximation(
-        g_name=g_name, approximation=gt_approx, logits=logits, T=T
+        g_name=g_name, approximation=gt_approx, logits=logits, T=T, weights=None
     )
+    
     if risk_type.value == RiskType.BAYES_RISK.value:
-        result = np.mean(risk(prob_gt=prob_gt), axis=0)
+        risk_vals = risk(prob_gt=prob_gt)
+        if weights is not None:
+            result = np.sum(risk_vals * weights[:, None, None], axis=0)
+        else:
+            result = np.mean(risk_vals, axis=0)
+            
     else:
         prob_pred = get_probability_approximation(
-            g_name=g_name, approximation=pred_approx, logits=logits, T=T
+            g_name=g_name, approximation=pred_approx, logits=logits, T=T, weights=weights
         )
-        result = np.mean(risk(prob_gt=prob_gt, prob_pred=prob_pred), axis=(0, 1))
+        risk_vals = risk(prob_gt=prob_gt, prob_pred=prob_pred)
+        
+        if weights is not None:
+            result = np.sum(risk_vals * weights[:, None, None], axis=0)
+        else:
+            result = np.mean(risk_vals, axis=0)
+        result = np.mean(result, axis=0)
 
     return np.squeeze(result)
 

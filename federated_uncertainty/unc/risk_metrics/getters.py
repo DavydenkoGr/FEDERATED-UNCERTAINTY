@@ -105,18 +105,18 @@ def get_probability_approximation(
     approximation: ApproximationType,
     logits: np.ndarray,
     T: float = 1.0,
+    weights: np.ndarray = None,
 ) -> np.ndarray:
     match approximation.value:
         case ApproximationType.OUTER.value:
             resulting_probs = safe_softmax(x=logits)
         case ApproximationType.INNER.value:
-            resulting_probs = posterior_predictive(logits, T=T)
+            resulting_probs = posterior_predictive(logits, T=T, weights=weights)
         case ApproximationType.CENTRAL.value:
-            resulting_probs = get_central_prediction(g_name=g_name)(logits=logits, T=T)
+            central_func = get_central_prediction(g_name=g_name)
+            resulting_probs = central_func(logits=logits, T=T, weights=weights)
         case _:
             raise ValueError(
-                f"{approximation} --  no such approximation available. ",
-                f"Available options are: {[element.value for element in ApproximationType]}",
+                f"{approximation} -- no such approximation available."
             )
-
     return resulting_probs

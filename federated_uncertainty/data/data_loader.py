@@ -3,10 +3,19 @@ import torch
 import torchvision
 import torchvision.transforms as transforms
 from torchvision.datasets import CIFAR10, CIFAR100, ImageFolder
+import medmnist
+from medmnist import INFO
 
 
 def get_dataset_stats(dataset_name):
-    if dataset_name == 'cifar10':
+    if dataset_name in INFO:
+        info = INFO[dataset_name]
+        mean = (0.5, 0.5, 0.5)
+        std = (0.5, 0.5, 0.5)
+        n_classes = len(info['label'])
+        img_size = 32  
+        padding = 4
+    elif dataset_name == 'cifar10':
         mean = (0.4914, 0.4822, 0.4465)
         std = (0.2023, 0.1994, 0.2010)
         n_classes = 10
@@ -33,6 +42,40 @@ def get_dataset_stats(dataset_name):
 def load_dataset(dataset_name, data_root='./data'):
     dataset_name = dataset_name.lower()
     mean, std, n_classes, img_size, padding = get_dataset_stats(dataset_name)
+    if dataset_name in INFO:
+        info = INFO[dataset_name]
+        DataClass = getattr(medmnist, info['python_class'])
+        n_channels = info['n_channels']
+        transforms_list = [
+            transforms.Resize((img_size, img_size), interpolation=transforms.InterpolationMode.BICUBIC),
+            transforms.ToTensor(),
+        ]
+        
+        if n_channels == 1:
+            transforms_list.insert(0, transforms.Grayscale(num_output_channels=3))
+        
+        transforms_list.append(transforms.Normalize(mean, std))
+        train_transforms_list = transforms_list.copy()
+        aug_idx = 1 if n_channels == 1 else 0
+        train_transforms_list.insert(aug_idx, transforms.RandomCrop(img_size, padding=padding))
+        train_transforms_list.insert(aug_idx + 1, transforms.RandomHorizontalFlip())
+
+        transform_train = transforms.Compose(train_transforms_list)
+        transform_test = transforms.Compose(transforms_list)
+
+        trainset = DataClass(split='train', transform=transform_train, download=True, root=data_root)
+        testset = DataClass(split='test', transform=transform_test, download=True, root=data_root)
+        
+        target_transform = transforms.Lambda(lambda y: torch.as_tensor(y).long().squeeze())
+        trainset.target_transform = target_transform
+        testset.target_transform = target_transform
+        
+        if hasattr(trainset, 'labels'):
+            trainset.targets = trainset.labels.squeeze().tolist()
+        if hasattr(testset, 'labels'):
+            testset.targets = testset.labels.squeeze().tolist()
+
+        return trainset, testset, n_classes
 
     transform_train = transforms.Compose([
         transforms.RandomCrop(img_size, padding=padding),
@@ -75,14 +118,20 @@ def load_dataset(dataset_name, data_root='./data'):
 
 def get_class_indices(dataset, n_classes):
     class_indices = {i: [] for i in range(n_classes)}
-    # CIFAR/Torchvision datasets usually have .targets or .labels
-    # ImageFolder has .targets
+    
     targets = getattr(dataset, 'targets', None)
     if targets is None:
-         # Fallback for datasets that might handle labels differently
-         targets = [label for _, label in dataset]
+        if hasattr(dataset, 'labels'):
+             targets = dataset.labels.squeeze().tolist()
+        else:
+             targets = [label for _, label in dataset]
          
     for idx, label in enumerate(targets):
-        class_indices[label].append(idx)
+        if hasattr(label, 'item'):
+            label = label.item()
+        elif isinstance(label, list) or (hasattr(label, '__len__') and len(label) == 1):
+             label = int(label[0])
+             
+        class_indices[int(label)].append(idx)
         
     return class_indices

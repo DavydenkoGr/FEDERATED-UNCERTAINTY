@@ -53,8 +53,8 @@ parser.add_argument('--save_dir',
                     default=f"./data/saved_models/run_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}", 
                     type=str, help='Path to save/load ensemble models')
 parser.add_argument('--dataset', default='cifar10', type=str, 
-                    choices=['cifar10', 'cifar100', 'tiny-imagenet'], 
-                    help='dataset to use (cifar10, cifar100, tiny-imagenet)')
+                    choices=['cifar10', 'cifar100', 'tiny-imagenet', 'pathmnist'], 
+                    help='dataset to use (cifar10, cifar100, tiny-imagenet, pathmnist)')
 
 args = parser.parse_args()
 

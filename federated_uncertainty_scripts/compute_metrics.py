@@ -5,6 +5,7 @@ import numpy as np
 from sklearn.metrics import roc_auc_score
 import torch
 import torch.nn.functional as F
+import pandas as pd
 
 # project root = parent of "scripts"
 ROOT = Path(__file__).resolve().parents[1]
@@ -107,7 +108,11 @@ print(f"--- Starting Evaluation ---")
 print(f"{'Client':<8} | {'Strategy':<12} | {'LogScore':<10} | {'Brier':<10} | {'Spherical':<10} | {'ECE':<10} | {'MCE':<10} | {'CW-ECE':<10} | {'Accuracy':<10}")
 print("-" * 110)
 
-strategies = ["random", "accuracy", "uncertainty", "hybrid"]
+strategies = ["random", "accuracy", "uncertainty", "market"]
+metrics_names = ["LogScore", "Brier", "Spherical", "ECE", "MCE", "CW-ECE", "Accuracy"]
+
+# Collect all results for xlsx export
+results_dict = {}
 
 for strategy in strategies:
     for client_id in range(1, n_clients + 1):
@@ -131,7 +136,43 @@ for strategy in strategies:
         
         results = compute_metrics(all_ind_logits, all_ood_logits, all_ind_labels, weights=weights)
         
+        # Store results for xlsx
+        if client_id not in results_dict:
+            results_dict[client_id] = {}
+        for metric_name in metrics_names:
+            col_name = f"{metric_name}_{strategy}"
+            results_dict[client_id][col_name] = results[metric_name]
+        
         print(f"{client_id:02d}       | {strategy:<12} | {results['LogScore']:.4f}     | {results['Brier']:.4f}     | {results['Spherical']:.4f}     | {results['ECE']:.4f}     | {results['MCE']:.4f}     | {results['CW-ECE']:.4f}     | {results['Accuracy']:.4f}")
     print("-" * 110)
 
 print(f"--- Calculation Complete ---")
+
+# Create DataFrame for xlsx export
+# Columns: Metric1_random, Metric1_accuracy, Metric1_uncertainty, Metric1_hybrid, Metric2_random, ...
+column_order = []
+for metric_name in metrics_names:
+    for strategy in strategies:
+        column_order.append(f"{metric_name}_{strategy}")
+
+# Create DataFrame with clients as index
+df_data = []
+client_ids = []
+for client_id in sorted(results_dict.keys()):
+    client_ids.append(client_id)
+    row_data = [results_dict[client_id].get(col, np.nan) for col in column_order]
+    df_data.append(row_data)
+
+df = pd.DataFrame(df_data, index=client_ids, columns=column_order)
+df.index.name = "Client"
+
+# Save to xlsx
+output_xlsx_path = Path(data_path) / "metrics_results.xlsx"
+try:
+    df.to_excel(output_xlsx_path, engine='openpyxl')
+    print(f"\n--- Results saved to {output_xlsx_path} ---")
+except ImportError:
+    print(f"\n--- Warning: openpyxl is not installed. Cannot save to xlsx format. ---")
+    print(f"--- Install openpyxl with: pip install openpyxl ---")
+except Exception as e:
+    print(f"\n--- Error saving to xlsx: {e} ---")

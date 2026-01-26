@@ -18,21 +18,21 @@ if str(ROOT) not in sys.path:
 
 from federated_uncertainty.optim.train import train_ensembles_w_local_data
 from federated_uncertainty.randomness import set_all_seeds
-from federated_uncertainty.nn import QuantVGG
+from federated_uncertainty.nn import QuantVGG, VGG
 from federated_uncertainty.eval import evaluate_single_model_accuracy, evaluate_selected_ensemble
 from federated_uncertainty.noise import get_noisy_model, NoiseType, NOISE_CHOICES
 from federated_uncertainty.data import load_dataset, get_class_indices
 
-parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
+parser = argparse.ArgumentParser(description='PyTorch FEDERATED UNCERTAINTY Training')
 parser.add_argument('--n_models', default=20, type=int, help='number of models')
 parser.add_argument('--n_clients', default=5, type=int, help='number of clients')
 parser.add_argument('--ensemble_size', default=3, type=int, help='number of models for single client')
 parser.add_argument('--lambda_disagreement', default=0.1, type=float, help='disagreement importance')
 parser.add_argument('--lambda_antireg', default=0.01, type=float, help='antiregularization coefficient')
 parser.add_argument('--fraction', default=0.25, type=float, help='client and model part of train data')
-parser.add_argument('--n_epochs', default=5, type=int, help='number of training epoches')
+parser.add_argument('--n_epochs', default=50, type=int, help='number of training epoches')
 parser.add_argument('--batch_size', default=128, type=int, help='batch size')
-parser.add_argument('--lr', default=1e-3, type=float, help='learning rate for models')
+parser.add_argument('--lr', default=1e-4, type=float, help='learning rate for models')
 parser.add_argument('--model_pool_split_ratio', default=0.6, type=float, help='model/client data')
 parser.add_argument('--model_min_classes', default=5, type=int, help='min classes for model pool')
 parser.add_argument('--model_max_classes', default=8, type=int, help='max classes for model pool')
@@ -45,7 +45,7 @@ parser.add_argument('--noise_type',
                     help=f'Type of noise to apply to spoiler models. Choices: {", ".join(NOISE_CHOICES)}')
 parser.add_argument('--spoiler_noise', default=0.05, type=float, help='std of noise added to spoiler weights')
 parser.add_argument('--market_lr', default=1.0, type=float, help='learning rate for mirror descent')
-parser.add_argument('--market_epochs', default=50, type=int, help='optimization steps for market weighting')
+parser.add_argument('--market_epochs', default=2, type=int, help='optimization steps for market weighting')
 parser.add_argument('--save_dir', 
                     default=f"./data/saved_models/run_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}", 
                     type=str, help='Path to save/load ensemble models')
@@ -125,7 +125,7 @@ def sample_indices(selected_classes, class_indices, total_samples):
 samples_per_model = int(len(trainset) * fraction)
 samples_per_client = int(len(trainset) * fraction)
 
-print(f"\n==> Generating {n_models} datasets for model pool training...")
+print(f"\n==> Generating {n_models} datasets for model training...")
 
 model_train_loaders = []
 
@@ -188,7 +188,7 @@ model_file_path = run_dir / 'ensemble.pt'
 
 model_file_path.parent.mkdir(parents=True, exist_ok=True)
 
-ensemble = [QuantVGG('VGG19', n_classes).to(device) for _ in range(n_models)]
+ensemble = [VGG('VGG19', n_classes).to(device) for _ in range(n_models)]
 ensemble_state_dicts = None
 
 if model_file_path.exists():
@@ -239,7 +239,6 @@ def get_all_logits_and_targets(models, data_loader, device):
     targets_tensor = torch.cat(all_targets, dim=0).to(device)
     
     n_samples = inputs_tensor.shape[0]
-    batch_size_inf = 500
     all_logits = []
 
     with torch.no_grad():
@@ -248,8 +247,8 @@ def get_all_logits_and_targets(models, data_loader, device):
             model.to(device)
             model_logits = []
             
-            for i in range(0, n_samples, batch_size_inf):
-                batch_inp = inputs_tensor[i : i + batch_size_inf].to(device)
+            for i in range(0, n_samples, batch_size):
+                batch_inp = inputs_tensor[i : i + batch_size].to(device)
                 model_logits.append(model(batch_inp).cpu())
             
             all_logits.append(torch.cat(model_logits, dim=0))
@@ -376,7 +375,7 @@ def select_uncertainty_aware_models(
         num_to_select,
         client_test_loader,
         ood_loader,
-        lambda_val,
+        lambda_disagreement,
         device,
         criterion):
 
@@ -411,7 +410,7 @@ def select_uncertainty_aware_models(
 
                 avg_disagreement = total_disagreement / len(selected_indices)
                 risk = model_risks[k_idx]
-                score = risk - lambda_val * avg_disagreement
+                score = risk - lambda_disagreement * avg_disagreement
 
                 if score < best_score:
                     best_score = score
@@ -605,40 +604,40 @@ for i in range(n_clients):
         criterion,
     )
 
-    selected_ensemble_mkt, indices_mkt = select_and_evaluate_models(
-        "market",
-        ensemble,
-        spoilers,
-        client_ind_train_loaders[i],
-        client_ood_test_loaders[i],
-        client_ind_test_loaders[i],
-        i + 1,
-        device,
-        criterion,
-    )
+    # selected_ensemble_mkt, indices_mkt = select_and_evaluate_models(
+    #     "market",
+    #     ensemble,
+    #     spoilers,
+    #     client_ind_train_loaders[i],
+    #     client_ood_test_loaders[i],
+    #     client_ind_test_loaders[i],
+    #     i + 1,
+    #     device,
+    #     criterion,
+    # )
     
-    print(f"\n  --- Strategy: Hybrid (Uncertainty Selection + Market Weighting) ---")
+    # print(f"\n  --- Strategy: Hybrid (Uncertainty Selection + Market Weighting) ---")
     
-    hybrid_indices = indices_unc 
-    hybrid_ensemble = selected_ensemble_unc
+    # hybrid_indices = indices_unc 
+    # hybrid_ensemble = selected_ensemble_unc
 
-    print(f"  -> Selected models: {hybrid_indices}")
+    # print(f"  -> Selected models: {hybrid_indices}")
     
-    hybrid_weights = optimize_ensemble_weights(
-        hybrid_ensemble,
-        client_ind_train_loaders[i],
-        device,
-        args
-    )
+    # hybrid_weights = optimize_ensemble_weights(
+    #     hybrid_ensemble,
+    #     client_ind_train_loaders[i],
+    #     device,
+    #     args
+    # )
     
-    hybrid_acc, hybrid_loss = evaluate_weighted_ensemble(
-        hybrid_ensemble, 
-        hybrid_weights, 
-        client_ind_test_loaders[i], 
-        device, 
-        criterion
-    )
+    # hybrid_acc, hybrid_loss = evaluate_weighted_ensemble(
+    #     hybrid_ensemble, 
+    #     hybrid_weights, 
+    #     client_ind_test_loaders[i], 
+    #     device, 
+    #     criterion
+    # )
     
-    print(f"    -> Hybrid Ensemble Accuracy (Weighted): {hybrid_acc:.4f} (Loss: {hybrid_loss:.4f})")
+    # print(f"    -> Hybrid Ensemble Accuracy (Weighted): {hybrid_acc:.4f} (Loss: {hybrid_loss:.4f})")
     
-    save_logits_and_labels(hybrid_ensemble, client_ind_test_loaders[i], client_ood_test_loaders[i], i + 1, "hybrid", device)
+    # save_logits_and_labels(hybrid_ensemble, client_ind_test_loaders[i], client_ood_test_loaders[i], i + 1, "hybrid", device)

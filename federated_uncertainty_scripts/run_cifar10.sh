@@ -6,17 +6,17 @@ CUDA_VISIBLE_DEVICES=0 python3 ./federated_uncertainty_scripts/main_federated_en
     --lambda_disagreement 0.1 \
     --lambda_antireg 0.01 \
     --fraction 0.5 \
-    --n_epochs 85 \
+    --n_epochs 50 \
     --batch_size 256 \
     --lr 1e-4 \
-    --spoiler_noise 6e-5 \
+    --spoiler_noise 5e-5 \
     --noise_type "noize_weights" \
     --market_lr 5e-3 \
     --market_epochs 2 \
-    --model_min_classes 85 \
-    --model_max_classes 95 \
-    --client_min_classes 20 \
-    --client_max_classes 50 \
-    --save_dir "./data/saved_models/cifar100/test_run4" \
-    --dataset "cifar100" \
+    --model_min_classes 5 \
+    --model_max_classes 8 \
+    --client_min_classes 2 \
+    --client_max_classes 5 \
+    --save_dir "./data/saved_models/cifar10/test_run_VGG" \
+    --dataset "cifar10" \
     --seed 0

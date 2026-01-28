@@ -1,4 +1,4 @@
-for seed in 1 2; do
+for seed in 0 1 2; do
     CUDA_VISIBLE_DEVICES=0 python3 ./federated_uncertainty_scripts/main_federated_ensembles.py \
         --n_models 30 \
         --n_clients 5 \

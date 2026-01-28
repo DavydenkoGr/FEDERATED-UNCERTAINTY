@@ -97,8 +97,15 @@ def compute_metrics(ind_logits, ood_logits, ind_labels, weights=None):
     cw_ece = get_metric("cw-ece")
     metrics_results['CW-ECE'] = cw_ece(probs=avg_ind_probs, y_true=ind_labels)
 
-    # --- METRIC 7: Accuracy ---
-    predictions = np.argmax(avg_ind_probs, axis=1)
+    # For Accuracy: average logits first
+    if weights is not None:
+        w_expanded = weights[:, None, None]
+        avg_ind_logits = np.sum(ind_logits * w_expanded, axis=0)
+    else:
+        avg_ind_logits = np.mean(ind_logits, axis=0)
+    
+    # --- METRIC 7: Accuracy (using averaged logits, same as main script) ---
+    predictions = np.argmax(avg_ind_logits, axis=1)
     accuracy = np.mean(predictions == ind_labels)
     metrics_results['Accuracy'] = accuracy
 

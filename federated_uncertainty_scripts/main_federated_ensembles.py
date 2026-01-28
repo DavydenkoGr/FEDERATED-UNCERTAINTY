@@ -4,6 +4,7 @@ from pathlib import Path
 import datetime
 import random
 import copy
+import yaml
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -187,6 +188,13 @@ run_dir = Path(save_dir)
 model_file_path = run_dir / 'ensemble.pt'
 
 model_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+# Save hyperparameters to YAML config
+config_path = run_dir / 'config.yaml'
+config_dict = vars(args)
+with open(config_path, 'w') as f:
+    yaml.dump(config_dict, f, default_flow_style=False, sort_keys=False)
+print(f"  Hyperparameters saved to {config_path}.")
 
 ensemble = [VGG('VGG19', n_classes).to(device) for _ in range(n_models)]
 ensemble_state_dicts = None
@@ -604,17 +612,17 @@ for i in range(n_clients):
         criterion,
     )
 
-    # selected_ensemble_mkt, indices_mkt = select_and_evaluate_models(
-    #     "market",
-    #     ensemble,
-    #     spoilers,
-    #     client_ind_train_loaders[i],
-    #     client_ood_test_loaders[i],
-    #     client_ind_test_loaders[i],
-    #     i + 1,
-    #     device,
-    #     criterion,
-    # )
+    selected_ensemble_mkt, indices_mkt = select_and_evaluate_models(
+        "market",
+        ensemble,
+        spoilers,
+        client_ind_train_loaders[i],
+        client_ood_test_loaders[i],
+        client_ind_test_loaders[i],
+        i + 1,
+        device,
+        criterion,
+    )
     
     # print(f"\n  --- Strategy: Hybrid (Uncertainty Selection + Market Weighting) ---")
     

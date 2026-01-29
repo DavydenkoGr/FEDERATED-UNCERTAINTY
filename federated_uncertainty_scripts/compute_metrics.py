@@ -115,7 +115,15 @@ print(f"--- Starting Evaluation ---")
 print(f"{'Client':<8} | {'Strategy':<12} | {'LogScore':<10} | {'Brier':<10} | {'Spherical':<10} | {'ECE':<10} | {'MCE':<10} | {'CW-ECE':<10} | {'Accuracy':<10}")
 print("-" * 110)
 
-strategies = ["random", "accuracy", "uncertainty"]
+strategies = [
+    "random", 
+    "accuracy", 
+    "uncertainty", 
+    "market", 
+    "entropy", 
+    "greedy_accuracy", 
+    "calibration", 
+]
 metrics_names = ["LogScore", "Brier", "Spherical", "ECE", "MCE", "CW-ECE", "Accuracy"]
 
 # Collect all results for xlsx export

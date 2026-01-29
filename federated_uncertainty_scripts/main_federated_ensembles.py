@@ -23,6 +23,7 @@ from federated_uncertainty.nn import QuantVGG, VGG
 from federated_uncertainty.eval import evaluate_single_model_accuracy, evaluate_selected_ensemble
 from federated_uncertainty.noise import get_noisy_model, NoiseType, NOISE_CHOICES
 from federated_uncertainty.data import load_dataset, get_class_indices
+from federated_uncertainty.unc.calibration_metrics import get_metric
 
 parser = argparse.ArgumentParser(description='PyTorch FEDERATED UNCERTAINTY Training')
 parser.add_argument('--n_models', default=20, type=int, help='number of models')
@@ -507,8 +508,6 @@ def select_greedy_ensemble_accuracy(models, num_to_select, client_loader, device
             break
             
     return selected_indices
-
-from federated_uncertainty.unc.calibration_metrics import get_metric
 
 
 def select_calibration_based(models, num_to_select, client_loader, device):

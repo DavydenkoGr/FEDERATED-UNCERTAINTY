@@ -475,6 +475,78 @@ def select_market_models(spoilers, num_to_select, client_loader, device, args):
     return selected_indices.tolist()
 
 
+def select_greedy_ensemble_accuracy(models, num_to_select, client_loader, device):
+    """
+    Forward selection: at each step add model that maximizes ENSEMBLE accuracy.
+    """
+    selected_indices = []
+    pool_indices = list(range(len(models)))
+    all_logits, targets = get_logits_and_labels(models, client_loader, device)
+    all_probs = F.softmax(all_logits, dim=-1)
+    
+    for _ in range(num_to_select):
+        best_idx = -1
+        best_acc = -1.0
+        
+        for candidate_idx in pool_indices:
+            current_indices = selected_indices + [candidate_idx]
+            ensemble_probs = all_probs[current_indices].mean(dim=0)
+            preds = ensemble_probs.argmax(dim=1)
+            
+            correct = (preds == targets).sum().item()
+            acc = correct / len(targets)
+            
+            if acc > best_acc:
+                best_acc = acc
+                best_idx = candidate_idx
+        
+        if best_idx != -1:
+            selected_indices.append(best_idx)
+            pool_indices.remove(best_idx)
+        else:
+            break
+            
+    return selected_indices
+
+from federated_uncertainty.unc.calibration_metrics import get_metric
+
+
+def select_calibration_based(models, num_to_select, client_loader, device):
+    """
+    Select models with lowest ECE on local data.
+    """
+    ece_metric = get_metric("ece")
+    scores = []
+    
+    all_logits, targets = get_logits_and_labels(models, client_loader, device)
+    all_probs = F.softmax(all_logits, dim=-1).numpy()
+    targets_np = targets.numpy()
+    
+    for i in range(len(models)):
+        score = ece_metric(probs=all_probs[i], y_true=targets_np)
+        scores.append((score, i))
+    scores.sort(key=lambda x: x[0])
+    
+    return [idx for score, idx in scores[:num_to_select]]
+
+
+def select_entropy_based_models(models, num_to_select, client_loader, device):
+    """
+    Select models with lowest predictive entropy (highest confidence) on local IND data.
+    """
+    all_logits, _ = get_logits_and_labels(models, client_loader, device)
+    probs = F.softmax(all_logits, dim=-1)
+    log_probs = F.log_softmax(all_logits, dim=-1)
+    entropies = -(probs * log_probs).sum(dim=-1)
+    avg_model_entropy = entropies.mean(dim=1)
+    scores = []
+    for i in range(len(models)):
+        scores.append((avg_model_entropy[i].item(), i))
+    
+    scores.sort(key=lambda x: x[0])
+    return [idx for _, idx in scores[:num_to_select]]
+
+
 # Logits and labels saving (keeps alignment regardless of DataLoader shuffle)
 def get_logits_and_labels(models, data_loader, device):
     all_logits = []
@@ -545,6 +617,21 @@ def select_and_evaluate_models(
         ensemble_indices = select_market_models(
             spoilers, ensemble_size, client_ind_train_loader, device, args
         )
+    elif strategy == "greedy_accuracy":
+        print("\n  --- Strategy: Greedy Ensemble Accuracy ---")
+        ensemble_indices = select_greedy_ensemble_accuracy(
+            spoilers, ensemble_size, client_ind_train_loader, device
+        )
+    elif strategy == "calibration":
+        print("\n  --- Strategy: Best ECE Selection ---")
+        ensemble_indices = select_calibration_based(
+            spoilers, ensemble_size, client_ind_train_loader, device
+        )
+    elif strategy == "entropy":
+        print("\n  --- Strategy: Entropy-based Selection (Min Entropy) ---")
+        ensemble_indices = select_entropy_based_models(
+            spoilers, ensemble_size, client_ind_train_loader, device
+        )
     else:
         raise ValueError(f"Unknown strategy '{strategy}'.")
     
@@ -614,6 +701,42 @@ for i in range(n_clients):
 
     selected_ensemble_mkt, indices_mkt = select_and_evaluate_models(
         "market",
+        ensemble,
+        spoilers,
+        client_ind_train_loaders[i],
+        client_ood_test_loaders[i],
+        client_ind_test_loaders[i],
+        i + 1,
+        device,
+        criterion,
+    )
+
+    selected_ensemble_greedy, indices_greedy = select_and_evaluate_models(
+        "greedy_accuracy",
+        ensemble,
+        spoilers,
+        client_ind_train_loaders[i],
+        client_ood_test_loaders[i],
+        client_ind_test_loaders[i],
+        i + 1,
+        device,
+        criterion,
+    )
+
+    selected_ensemble_ece, indices_ece = select_and_evaluate_models(
+        "calibration",
+        ensemble,
+        spoilers,
+        client_ind_train_loaders[i],
+        client_ood_test_loaders[i],
+        client_ind_test_loaders[i],
+        i + 1,
+        device,
+        criterion,
+    )
+
+    selected_ensemble_ent, indices_ent = select_and_evaluate_models(
+        "entropy",
         ensemble,
         spoilers,
         client_ind_train_loaders[i],

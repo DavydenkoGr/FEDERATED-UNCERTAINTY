@@ -14,6 +14,9 @@ if str(ROOT) not in sys.path:
 
 from federated_uncertainty.unc.risk_metrics import *
 from federated_uncertainty.unc.calibration_metrics import *
+from federated_uncertainty.randomness import set_all_seeds
+
+set_all_seeds(0)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--n_clients', default=5, type=int, help='number of clients')
@@ -118,11 +121,9 @@ print("-" * 110)
 strategies = [
     "random", 
     "accuracy", 
+    "greedy_accuracy",
     "uncertainty", 
-    "market", 
-    "entropy", 
-    "greedy_accuracy", 
-    "calibration", 
+    "market",
 ]
 metrics_names = ["LogScore", "Brier", "Spherical", "ECE", "MCE", "CW-ECE", "Accuracy"]
 

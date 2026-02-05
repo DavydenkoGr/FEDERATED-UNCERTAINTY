@@ -51,9 +51,8 @@ parser.add_argument('--market_epochs', default=2, type=int, help='optimization s
 parser.add_argument('--save_dir', 
                     default=f"./data/saved_models/run_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}", 
                     type=str, help='Path to save/load ensemble models')
-parser.add_argument('--dataset', default='cifar10', type=str, 
-                    choices=['cifar10', 'cifar100', 'tiny-imagenet'], 
-                    help='dataset to use (cifar10, cifar100, tiny-imagenet)')
+parser.add_argument('--dataset', default='cifar10', type=str,
+                    help='dataset to use (cifar10, cifar100, MedMNIST datasets)')
 parser.add_argument('--seed', default=0, type=int, help='seed for random number generator')
 
 args = parser.parse_args()
@@ -431,35 +430,117 @@ def select_uncertainty_aware_models(
     return selected_indices
 
 def select_market_models(spoilers, num_to_select, client_loader, device, args):
-    logits_tensor, targets_tensor = get_all_logits_and_targets(spoilers, client_loader, device)
+    n_m = len(spoilers)
     
-    print("    [Market] Pre-computing pairwise disagreement matrix...")
-    probs = F.softmax(logits_tensor, dim=-1)
-    log_probs = F.log_softmax(logits_tensor, dim=-1)
+    # Collect all inputs and targets first (CPU)
+    all_inputs = []
+    all_targets = []
+    for inp, tar in client_loader:
+        all_inputs.append(inp)
+        all_targets.append(tar)
     
-    p_i = probs.unsqueeze(1)
-    log_p_i = log_probs.unsqueeze(1)
-    log_p_j = log_probs.unsqueeze(0)
+    inputs_tensor = torch.cat(all_inputs, dim=0)
+    targets_tensor = torch.cat(all_targets, dim=0).to(device)
+    n_samples = inputs_tensor.shape[0]
     
-    kl_pairwise_samples = torch.sum(p_i * (log_p_i - log_p_j), dim=-1) 
-    disagreement_matrix = kl_pairwise_samples.mean(dim=-1).to(device)
+    # Use smaller batch size for memory efficiency
+    eval_batch_size = batch_size // 10  # Smaller batches for evaluation
+    
+    print("    [Market] Pre-computing pairwise disagreement matrix (batched)...")
+    
+    # Compute disagreement matrix in batches to save memory
+    disagreement_matrix = torch.zeros(n_m, n_m, device=device)
+    total_samples_processed = 0
+    
+    # Process samples in batches
+    for batch_start in range(0, n_samples, eval_batch_size):
+        batch_end = min(batch_start + eval_batch_size, n_samples)
+        batch_inputs = inputs_tensor[batch_start:batch_end].to(device)
+        batch_size_actual = batch_end - batch_start
+        
+        # Get logits for all models for this batch
+        batch_logits = []
+        with torch.no_grad():
+            for model in spoilers:
+                model.eval()
+                batch_logits.append(model(batch_inputs))
+        
+        batch_logits_tensor = torch.stack(batch_logits, dim=0)  # (n_m, batch_size, n_classes)
+        batch_probs = F.softmax(batch_logits_tensor, dim=-1)
+        batch_log_probs = F.log_softmax(batch_logits_tensor, dim=-1)
+        
+        # Compute KL divergence for this batch
+        # More memory-efficient: compute pairwise KL without creating huge tensors
+        for i in range(n_m):
+            for j in range(i + 1, n_m):
+                # KL(p_i || p_j) = sum(p_i * (log(p_i) - log(p_j)))
+                kl_ij = torch.sum(batch_probs[i] * (batch_log_probs[i] - batch_log_probs[j]), dim=-1)
+                # Average KL divergence for this batch
+                kl_mean = kl_ij.mean()
+                # Accumulate weighted by batch size
+                disagreement_matrix[i, j] += kl_mean * batch_size_actual
+                disagreement_matrix[j, i] += kl_mean * batch_size_actual
+        
+        total_samples_processed += batch_size_actual
+        
+        # Clean up batch tensors
+        del batch_logits_tensor, batch_probs, batch_log_probs, batch_logits
+        torch.cuda.empty_cache() if torch.cuda.is_available() else None
+    
+    # Normalize by total number of samples
+    if total_samples_processed > 0:
+        disagreement_matrix /= total_samples_processed
     disagreement_matrix.fill_diagonal_(0)
     
-    n_m = len(spoilers)
+    # Initialize weights
     w = torch.ones(n_m, device=device) / n_m
     w = w.detach().requires_grad_(True)
     
-    print(f"    [Market] Optimizing weights ({args.market_epochs} steps)...")
+    print(f"    [Market] Optimizing weights ({args.market_epochs} steps, batched)...")
     
-    for _ in range(args.market_epochs):
-        probs_models = F.softmax(logits_tensor, dim=-1)
-        probs_ens = torch.einsum('n, nmc -> mc', w, probs_models)
-        loss_nll = F.nll_loss(torch.log(probs_ens + 1e-7), targets_tensor)
-        w_D = torch.matmul(w, disagreement_matrix) 
+    # Optimize weights with batched loss computation
+    for epoch in range(args.market_epochs):
+        total_loss_nll = 0.0
+        n_batches_processed = 0
+        
+        # Compute loss in batches
+        for batch_start in range(0, n_samples, eval_batch_size):
+            batch_end = min(batch_start + eval_batch_size, n_samples)
+            batch_inputs = inputs_tensor[batch_start:batch_end].to(device)
+            batch_targets = targets_tensor[batch_start:batch_end]
+            
+            # Get logits for all models for this batch
+            batch_logits = []
+            with torch.no_grad():
+                for model in spoilers:
+                    model.eval()
+                    batch_logits.append(model(batch_inputs))
+            
+            batch_logits_tensor = torch.stack(batch_logits, dim=0)  # (n_m, batch_size, n_classes)
+            batch_probs = F.softmax(batch_logits_tensor, dim=-1)
+            
+            # Compute ensemble probabilities: w @ probs
+            batch_probs_ens = torch.einsum('n, nmc -> mc', w, batch_probs)
+            
+            # NLL loss for this batch
+            batch_loss_nll = F.nll_loss(torch.log(batch_probs_ens + 1e-7), batch_targets, reduction='sum')
+            total_loss_nll += batch_loss_nll
+            n_batches_processed += 1
+            
+            # Clean up
+            del batch_logits_tensor, batch_probs, batch_probs_ens, batch_logits
+        
+        # Average NLL loss
+        loss_nll = total_loss_nll / n_samples
+        
+        # Diversity term (doesn't depend on batches)
+        w_D = torch.matmul(w, disagreement_matrix)
         diversity = torch.dot(w_D, w)
+        
         loss = loss_nll - args.lambda_disagreement * diversity
         
-        if w.grad is not None: w.grad.zero_()
+        if w.grad is not None: 
+            w.grad.zero_()
         loss.backward()
         
         with torch.no_grad():
@@ -467,6 +548,9 @@ def select_market_models(spoilers, num_to_select, client_loader, device, args):
             w_new /= w_new.sum()
             w.copy_(w_new)
             w.grad.zero_()
+        
+        # Clean up
+        torch.cuda.empty_cache() if torch.cuda.is_available() else None
 
     weights_np = w.detach().cpu().numpy()
     selected_indices = weights_np.argsort()[-num_to_select:][::-1]
@@ -483,7 +567,6 @@ def select_greedy_ensemble_accuracy(models, num_to_select, client_loader, device
     selected_indices = []
     pool_indices = list(range(len(models)))
     all_logits, targets = get_logits_and_labels(models, client_loader, device)
-    all_probs = F.softmax(all_logits, dim=-1)
     
     for _ in range(num_to_select):
         best_idx = -1
@@ -491,8 +574,9 @@ def select_greedy_ensemble_accuracy(models, num_to_select, client_loader, device
         
         for candidate_idx in pool_indices:
             current_indices = selected_indices + [candidate_idx]
-            ensemble_probs = all_probs[current_indices].mean(dim=0)
-            preds = ensemble_probs.argmax(dim=1)
+            # Average logits (not probabilities) to match evaluate_selected_ensemble
+            ensemble_logits = all_logits[current_indices].mean(dim=0)
+            preds = ensemble_logits.argmax(dim=1)
             
             correct = (preds == targets).sum().item()
             acc = correct / len(targets)
@@ -722,29 +806,29 @@ for i in range(n_clients):
         criterion,
     )
 
-    selected_ensemble_ece, indices_ece = select_and_evaluate_models(
-        "calibration",
-        ensemble,
-        spoilers,
-        client_ind_train_loaders[i],
-        client_ood_test_loaders[i],
-        client_ind_test_loaders[i],
-        i + 1,
-        device,
-        criterion,
-    )
+    # selected_ensemble_ece, indices_ece = select_and_evaluate_models(
+    #     "calibration",
+    #     ensemble,
+    #     spoilers,
+    #     client_ind_train_loaders[i],
+    #     client_ood_test_loaders[i],
+    #     client_ind_test_loaders[i],
+    #     i + 1,
+    #     device,
+    #     criterion,
+    # )
 
-    selected_ensemble_ent, indices_ent = select_and_evaluate_models(
-        "entropy",
-        ensemble,
-        spoilers,
-        client_ind_train_loaders[i],
-        client_ood_test_loaders[i],
-        client_ind_test_loaders[i],
-        i + 1,
-        device,
-        criterion,
-    )
+    # selected_ensemble_ent, indices_ent = select_and_evaluate_models(
+    #     "entropy",
+    #     ensemble,
+    #     spoilers,
+    #     client_ind_train_loaders[i],
+    #     client_ood_test_loaders[i],
+    #     client_ind_test_loaders[i],
+    #     i + 1,
+    #     device,
+    #     criterion,
+    # )
     
     # print(f"\n  --- Strategy: Hybrid (Uncertainty Selection + Market Weighting) ---")
     

@@ -1,0 +1,2 @@
+CUDA_VISIBLE_DEVICES=0 python3 ./federated_uncertainty_scripts/gt_experiment/gt_metrics.py \
+    --save_dir "/home/grigoriidavydenko/workplace/FEDERATED-UNCERTAINTY/data/saved_models/gt_experiment/seed5"
